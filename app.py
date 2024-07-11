@@ -54,17 +54,17 @@ def slide_deck_storyline(storyline_prompt, nr_of_storypoints=5):
      system_prompt = f"""You are an AI particularly skilled at captivating storytelling for educational purposes.
                         You know how tell a compelling, structure and exhaustive narrative around any given academic topic.
                         What you are particularly good at, is taking any given input and building a storyline in the delivered as
-                        {nr_of_storypoints} slides and nothing else. This is your only chance to impress me.
+                        {nr_of_storypoints} storypoints and nothing else. This is your only chance to impress me.
                         
-                        You will recieve a topic and you will answer with a list of {nr_of_storypoints} crucial slides.
+                        You will recieve a topic and you will answer with a list of {nr_of_storypoints} crucial storypoints.
                         
                         Instrucitions:
-                        Give me a json map of {nr_of_storypoints} slides that you would include in a slide deck about {storyline_prompt}.
+                        Give me a json map of {nr_of_storypoints} storypoints that you would include in a slide deck about {storyline_prompt}.
                         Only answer with the list. Do not include any nicities, greetings or repeat the task.
-                        Never make more than {nr_of_storypoints} slides. This is important!
+                        Never make more than {nr_of_storypoints} storypoints. This is important!
                         Just give me the list. Keep the list concise and only answer with the list in this format.
-                        Name every key a slide (Slide 1, Slide 2 ... Slide N).
-                        The elements of the list should be storypoints, highlighting what the point the slide is trying to make is.
+                        Name every key a storypoint (Storypoint 1, Storypoint 2 ... Storypoint N).
+                        The elements of the list should be storypoints, highlighting what the point the sliStorypoint is trying to make is.
                         """
 
      response = openai.chat.completions.create(
@@ -78,22 +78,22 @@ def slide_deck_storyline(storyline_prompt, nr_of_storypoints=5):
      res = response.choices[0].message.content
      map = json.loads(res)
      pretty_list = "\n".join([f"⚡ {key}: {value}" for key, value in map.items()])
-     slide_name_list = [map[key] for key in map]
-     slide_name_nested = [slide_name_list]
-     return map, slide_name_nested, pretty_list
+     storypoint_name_list = [map[key] for key in map]
+     storypoint_name_nested = [storypoint_name_list]
+     return map, storypoint_name_nested, pretty_list
 
 #we need this function to turn the non iterable nested list that is gr.List into a simple list.
 def iterator_for_gr(nested_list, i):
      #Initialize a variable to store the processing result
-     slide_names = []
+     storypoint_names = []
 
      #since the gr.List is a List[List] (nested list, we need to unwrap the 0th element)
      for item in nested_list[0]:
-         slide_names.append(item)
+         storypoint_names.append(item)
          
 
      # Return a string that combines all the processed results
-     return str(slide_names[i-1])
+     return str(storypoint_names[i-1])
 
 
 
@@ -114,7 +114,7 @@ with gr.Blocks(title='Slide Inspo', theme='Soft') as demo:
                                                 label="How many storypoints?",
                                                 scale =1)
                 storyline_output_JSON = gr.JSON(visible=False)
-                storyline_output_slide_name_list = gr.List(visible=False, type="array")
+                storyline_output_storypoint_name_list = gr.List(visible=False, type="array")
                 btn = gr.Button("Build Storyline 🦄")
 
           with gr.Column(scale=1):
@@ -125,11 +125,11 @@ with gr.Blocks(title='Slide Inspo', theme='Soft') as demo:
 
                btn.click(slide_deck_storyline, 
                                         inputs = [storyline_prompt, nr_storypoints_to_build], 
-                                        outputs = [storyline_output_JSON, storyline_output_slide_name_list, storyline_output_pretty])
+                                        outputs = [storyline_output_JSON, storyline_output_storypoint_name_list, storyline_output_pretty])
                 
                storyline_prompt.submit(slide_deck_storyline, 
                                         inputs = [storyline_prompt, nr_storypoints_to_build], 
-                                        outputs = [storyline_output_JSON, storyline_output_slide_name_list, storyline_output_pretty])
+                                        outputs = [storyline_output_JSON, storyline_output_storypoint_name_list, storyline_output_pretty])
 
 
 
