@@ -12,7 +12,7 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 
 neo4j_url = os.getenv("NEO4J_URL")
 AUTH = (os.getenv("NEO4J_USERNAME"), os.getenv("NEO4J_PASSWORD"))
-driver = GraphDatabase.driver(neo4j_url, auth=AUTH)
+#driver = GraphDatabase.driver(neo4j_url, auth=AUTH)
 
 
 
