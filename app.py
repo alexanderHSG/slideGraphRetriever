@@ -317,8 +317,7 @@ with gr.Blocks(title='Slide Inspo', theme='Soft') as demo:
                             
             storyline_output_pretty = gr.Textbox(label="Your Storyline:", lines=13, scale=3)
             submit_button = gr.Button("⚡ Find Slides ⚡")
-            submit_button.click(coordinate_simcalculation, inputs=[storyline_output_storypoint_name_list], outputs=[graphVisual])
-
+            
             btn.click(slide_deck_storyline, 
                                     inputs = [storyline_prompt, nr_storypoints_to_build], 
                                     outputs = [storyline_output_JSON, storyline_output_storypoint_name_list, storyline_output_pretty])
@@ -331,6 +330,8 @@ with gr.Blocks(title='Slide Inspo', theme='Soft') as demo:
     
     with gr.Row():
         graphVisual = gr.HTML()
+        
+submit_button.click(coordinate_simcalculation, inputs=[storyline_output_storypoint_name_list], outputs=[graphVisual])
 
 
 gr.close_all()
