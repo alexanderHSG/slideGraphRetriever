@@ -175,14 +175,14 @@ def coordinate_simcalculation(storyline_output_storypoint_name_list):
 
 def fetch_storypoints_and_slides(highest_similarities):
     storypoint_ids = [existing_id for _, existing_id, _ in highest_similarities]
-    print(storypoint_ids)
-    query = """
-    MATCH (sp:STORYPOINT) WHERE sp.id IN $storypoint_ids
+
+    query = f"""
+    MATCH (sp:STORYPOINT) WHERE sp.id IN {storypoint_ids}
     MATCH (sp)<-[:ASSIGNED_TO]-(s:SLIDE)<-[:CONTAINS]-(sd:SLIDE_DECK)
     RETURN sd, s, sp
     """
     with driver.session() as session:
-        result = session.run(query, {"storypoint_ids": storypoint_ids})
+        result = session.run(query)
         print("These are the results:" + str(result))
         for record in result:
             print("Slide Deck:", record["sd"])
