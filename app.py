@@ -192,7 +192,7 @@ def fetch_storypoints_and_slides(highest_similarities):
 
     graphVisualHTML = f"""
 
-
+<html>
 <head>
     <title>DataViz</title>
     <style type="text/css">
@@ -290,7 +290,7 @@ def fetch_storypoints_and_slides(highest_similarities):
 <body onload="draw()">
     <div id="viz"></div>
 </body>
-
+</html>
 
 """
 
