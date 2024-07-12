@@ -181,17 +181,17 @@ def fetch_storypoints_and_slides(highest_similarities):
     MATCH (sp)<-[:ASSIGNED_TO]-(s:SLIDE)<-[:CONTAINS]-(sd:SLIDE_DECK)
     RETURN sd, s, sp
     """
-    with driver.session() as session:
-        result = session.run(query)
-        print("These are the results:" + str(result))
-        for record in result:
-            print("Slide Deck:", record["sd"])
-            print("Slide:", record["s"])
-            print("Storypoint:", record["sp"])
+    #with driver.session() as session:
+        #result = session.run(query)
+        #print("These are the results:" + str(result))
+        #for record in result:
+        #    print("Slide Deck:", record["sd"])
+        #    print("Slide:", record["s"])
+        #    print("Storypoint:", record["sp"])
 
 
     graphVisualHTML = f"""
-<html>
+
 
 <head>
     <title>DataViz</title>
@@ -287,7 +287,7 @@ def fetch_storypoints_and_slides(highest_similarities):
     <div id="viz"></div>
 </body>
 
-</html>
+
 """
 
 
