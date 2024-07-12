@@ -16,6 +16,7 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 neo4j_url = "neo4j+s://" + str(os.getenv("NEO4J_URL"))
 AUTH = (os.getenv("NEO4J_USERNAME"), os.getenv("NEO4J_PASSWORD"))
 driver = GraphDatabase.driver(neo4j_url, auth=AUTH)
+query = None
 
 
 
@@ -190,23 +191,33 @@ def fetch_storypoints_and_slides(highest_similarities):
         #    print("Storypoint:", record["sp"])
 
 
-    graphVisualHTML = f"""
+    graphVisualHTML = """
 
 <html>
 <head>
     <title>DataViz</title>
     <style type="text/css">
-        #viz {{
+        #viz {
             width:  1400px;
             height: 700px;
-        }}
+        }
     </style>
     <script src="https://rawgit.com/neo4j-contrib/neovis.js/master/dist/neovis.js"></script>
 </head>
+<body onload="draw()">
+    <div id="viz"></div>
+</body>
+</html>"""
+    return graphVisualHTML
 
-<script type="text/javascript">
+scripts = f"""
+async () => {{
+    const script = document.createElement("script");
+    script.onload = () =>  console.log("d3 loaded") ;
+    script.src = "https://rawgit.com/neo4j-contrib/neovis.js/master/dist/neovis.js";
+    document.head.appendChild(script);
     var viz;
-    function draw() {{
+    globalThis.draw() = () =>{{
         var config = {{
                 containerId: "viz",
                 neo4j: {{
@@ -291,11 +302,9 @@ def fetch_storypoints_and_slides(highest_similarities):
     <div id="viz"></div>
 </body>
 </html>
-
+}}
 """
 
-
-    return graphVisualHTML 
 
 
 
@@ -340,6 +349,7 @@ with gr.Blocks(title='Slide Inspo', theme='Soft') as demo:
             storyline_prompt.submit(slide_deck_storyline, 
                                     inputs = [storyline_prompt, nr_storypoints_to_build], 
                                     outputs = [storyline_output_JSON, storyline_output_storypoint_name_list, storyline_output_pretty])
+    demo.load(None,None,None,_js=scripts)
 
 
     
