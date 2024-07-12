@@ -13,7 +13,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-neo4j_url = os.getenv("NEO4J_URL")
+neo4j_url = "neo4j+s://" + str(os.getenv("NEO4J_URL"))
 AUTH = (os.getenv("NEO4J_USERNAME"), os.getenv("NEO4J_PASSWORD"))
 driver = GraphDatabase.driver(neo4j_url, auth=AUTH)
 
@@ -178,8 +178,8 @@ def fetch_storypoints_and_slides(highest_similarities):
 
     query = f"""
     MATCH (sp:STORYPOINT) WHERE sp.id IN {storypoint_ids}
-    MATCH (sp)<-[:ASSIGNED_TO]-(s:SLIDE)<-[:CONTAINS]-(sd:SLIDE_DECK)
-    RETURN sd, s, sp
+    MATCH (sp)<-[r1:ASSIGNED_TO]-(s:SLIDE)<-[r2:CONTAINS]-(sd:SLIDE_DECK)
+    RETURN sd, r1, s, r2, sp
     """
     #with driver.session() as session:
         #result = session.run(query)
@@ -210,9 +210,13 @@ def fetch_storypoints_and_slides(highest_similarities):
         var config = {{
                 containerId: "viz",
                 neo4j: {{
-                    serverUrl: "{os.getenv("NEO4J_URL")}",
+                    serverUrl: "bolt://{os.getenv("NEO4J_URL")}:7687",
                     serverUser: "{os.getenv("NEO4J_USERNAME")}",
-                    serverPassword: "{os.getenv("NEO4J_PASSWORD")}"
+                    serverPassword: "{os.getenv("NEO4J_PASSWORD")}",
+                    driverConfig: {{
+                        encrypted: "ENCRYPTION_ON",
+                        trust: "TRUST_SYSTEM_CA_SIGNED_CERTIFICATES",
+                    }},
                 }},
                 labels: {{
                     SLIDE: {{
