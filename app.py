@@ -315,7 +315,7 @@ async () => {{
 ## GRADIO UI LAYOUT & FUNCTIONALITY
 ## ---------------------------------------------------------------------------------------------------------------------
 
-with gr.Blocks(title='Slide Inspo', theme='Soft', js=scripts) as demo:
+with gr.Blocks(title='Slide Inspo', theme='Soft', head=scripts) as demo:
     
     with gr.Row():
         graphVisual = gr.HTML()
