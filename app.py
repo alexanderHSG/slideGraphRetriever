@@ -178,7 +178,7 @@ def fetch_storypoints_and_slides(highest_similarities):
     print(storypoint_ids)
     query = """
     MATCH (sp:STORYPOINT) WHERE sp.id IN $storypoint_ids
-    MATCH (sp)<-[:ASSIGNED_TO]-(s:SLIDE)-[:CONTAINS]->(sd:SLIDE_DECK)
+    MATCH (sp)<-[:ASSIGNED_TO]-(s:SLIDE)<-[:CONTAINS]-(sd:SLIDE_DECK)
     RETURN sd, s, sp
     """
     with driver.session() as session:
