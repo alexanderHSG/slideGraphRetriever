@@ -315,7 +315,7 @@ async () => {{
 ## GRADIO UI LAYOUT & FUNCTIONALITY
 ## ---------------------------------------------------------------------------------------------------------------------
 
-with gr.Blocks(title='Slide Inspo', theme='Soft') as demo:
+with gr.Blocks(title='Slide Inspo', theme='Soft', js=scripts) as demo:
     
     with gr.Row():
         graphVisual = gr.HTML()
@@ -349,7 +349,7 @@ with gr.Blocks(title='Slide Inspo', theme='Soft') as demo:
             storyline_prompt.submit(slide_deck_storyline, 
                                     inputs = [storyline_prompt, nr_storypoints_to_build], 
                                     outputs = [storyline_output_JSON, storyline_output_storypoint_name_list, storyline_output_pretty])
-    demo.load(None,None,None,_js=scripts)
+
 
 
     
