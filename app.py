@@ -208,9 +208,9 @@ def fetch_storypoints_and_slides(highest_similarities):
         var config = {{
                 containerId: "viz",
                 neo4j: {{
-                    serverUrl: "bolt://localhost:7687",
-                    serverUser: "neo4j",
-                    serverPassword: "123testtest"
+                    serverUrl: "{os.getenv("NEO4J_URL")}",
+                    serverUser: "{os.getenv("NEO4J_USERNAME")}",
+                    serverPassword: "{os.getenv("NEO4J_PASSWORD")}"
                 }},
                 labels: {{
                     SLIDE: {{
