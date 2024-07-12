@@ -182,6 +182,7 @@ def fetch_storypoints_and_slides(highest_similarities):
     """
     with driver.session() as session:
         result = session.run(query, {"storypoint_ids": storypoint_ids})
+        print("These are the results:" + str(result))
         for record in result:
             print("Slide Deck:", record["sd"])
             print("Slide:", record["s"])
