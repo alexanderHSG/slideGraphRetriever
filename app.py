@@ -330,8 +330,8 @@ with gr.Blocks(title='Slide Inspo', theme='Soft') as demo:
     
     with gr.Row():
         graphVisual = gr.HTML()
-        
-submit_button.click(coordinate_simcalculation, inputs=[storyline_output_storypoint_name_list], outputs=[graphVisual])
+
+    submit_button.click(coordinate_simcalculation, inputs=[storyline_output_storypoint_name_list], outputs=[graphVisual])
 
 
 gr.close_all()
