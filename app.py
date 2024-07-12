@@ -3,6 +3,9 @@ import openai
 import json
 import gradio as gr
 from neo4j import GraphDatabase
+import pandas as pd
+import numpy as np
+from sklearn.metrics.pairwise import cosine_similarity
 
 
 
@@ -12,7 +15,7 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 
 neo4j_url = os.getenv("NEO4J_URL")
 AUTH = (os.getenv("NEO4J_USERNAME"), os.getenv("NEO4J_PASSWORD"))
-#driver = GraphDatabase.driver(neo4j_url, auth=AUTH)
+driver = GraphDatabase.driver(neo4j_url, auth=AUTH)
 
 
 
@@ -97,41 +100,238 @@ def iterator_for_gr(nested_list, i):
 
 
 
+# ---------------------------------------------------------------------------------------------------------------------
+## Calculate Input Storypoints Similarity to Storypoints in Database
+
+from openai import OpenAI
+client = OpenAI(api_key = os.getenv("OPENAI_API_KEY"))
+
+
+
+
+def get_embedding_inputstorypoints(storyline_output_storypoint_name_list, model="text-embedding-ada-002"):
+    # transform storyline_output_storypoint_name_list to pandas dataframe
+    input_storypoints = pd.DataFrame(storyline_output_storypoint_name_list, columns=['description'])
+    # get embeddings for input storypoints
+    input_storypoints['ada_embedding'] = input_storypoints.description.apply(lambda x: client.embeddings.create(input = [x], model=model).data[0].embedding)
+    
+    return input_storypoints
+
+
+# Function to fetch embeddings from Neo4j
+def fetch_embeddings(driver):
+    query = """
+    MATCH (sp:STORYPOINT)
+    RETURN sp.id AS id, sp.embedding AS embedding
+    """
+    embeddings = {}
+    with driver.session() as session:
+        result = session.run(query)
+        for record in result:
+            embeddings[record['id']] = np.array(record['embedding'])
+    return embeddings
+
+# Function to calculate cosine similarity and find the highest similarities
+def find_highest_similarities(existing_embeddings, new_embeddings):
+    # Transform embeddings into arrays for the calculation
+    existing_ids, existing_vecs = zip(*existing_embeddings.items())
+    new_ids, new_vecs = zip(*new_embeddings.items())
+    existing_vecs = np.array(existing_vecs)
+    new_vecs = np.array(new_vecs)
+
+    # Calculate cosine similarity
+    similarity_matrix = cosine_similarity(new_vecs, existing_vecs)
+
+    # Find the index with the highest similarity for each new embedding
+    max_indices = np.argmax(similarity_matrix, axis=1)
+    similarities = np.max(similarity_matrix, axis=1)
+
+    # Pair each new storypoint with the existing one that has the highest similarity
+    highest_pairs = [(new_ids[i], existing_ids[max_indices[i]], similarities[i]) for i in range(len(new_ids))]
+    return highest_pairs
+
+def coordinate_simcalculation(storyline_output_storypoint_name_list):
+
+    # Fetch existing embeddings from Neo4j
+    existing_embeddings = fetch_embeddings(driver)
+    input_storypoints = get_embedding_inputstorypoints(storyline_output_storypoint_name_list)
+    # Assume new_embeddings come from your Python processing earlier
+    new_embeddings = {row['description']: row['ada_embedding'] for index, row in input_storypoints.iterrows()}
+
+    # Find highest similarities
+    highest_similarities = find_highest_similarities(existing_embeddings, new_embeddings)
+
+    # Display results
+    for new_id, existing_id, similarity in highest_similarities:
+        print(f"Input STORYPOINT '{new_id}' is most similar to existing STORYPOINT '{existing_id}' with a similarity of {similarity:.2f}")
+
+    HTMLoutput = fetch_storypoints_and_slides(highest_similarities)
+
+    return HTMLoutput
+
+
+def fetch_storypoints_and_slides(highest_similarities):
+    storypoint_ids = [existing_id for _, existing_id, _ in highest_similarities]
+    query = """
+    MATCH (sp:STORYPOINT) WHERE sp.id IN $storypoint_ids
+    MATCH (sp)<-[:ASSIGNED_TO]-(s:SLIDE)-[:CONTAINS]->(sd:SLIDE_DECK)
+    RETURN sd, s, sp
+    """
+    with driver.session() as session:
+        result = session.run(query, {"storypoint_ids": storypoint_ids})
+        for record in result:
+            print("Slide Deck:", record["sd"])
+            print("Slide:", record["s"])
+            print("Storypoint:", record["sp"])
+
+
+    graphVisualHTML = f"""
+<html>
+
+<head>
+    <title>DataViz</title>
+    <style type="text/css">
+        #viz {{
+            width:  1400px;
+            height: 700px;
+        }}
+    </style>
+    <script src="https://rawgit.com/neo4j-contrib/neovis.js/master/dist/neovis.js"></script>
+</head>
+
+<script type="text/javascript">
+    var viz;
+    function draw() {{
+        var config = {{
+                containerId: "viz",
+                neo4j: {{
+                    serverUrl: "bolt://localhost:7687",
+                    serverUser: "neo4j",
+                    serverPassword: "123testtest"
+                }},
+                labels: {{
+                    SLIDE: {{
+                        [NeoVis.NEOVIS_ADVANCED_CONFIG]: {{
+                        static: {{
+                            shape: "image" // Sets the shape to use an image (use "circularImage" for circular nodes)
+                        }},
+                        function: {{
+                            image: (node) => "https://slidestorage.s3.eu-north-1.amazonaws.com/" + node.properties.object_id + ".png"
+                        }}
+                        }}
+                    }},
+                    STORYPOINT:{{
+                        label:"description",
+
+                [NeoVis.NEOVIS_ADVANCED_CONFIG]: {{
+                    static: {{
+                        caption: "description",
+                        shape: 'box',
+                        color: {{
+                            background: 'white',
+                            border: 'lightgray',
+                            highlight: {{
+                                background: 'lightblue',
+                                border: 'blue'
+                            }}
+                        }},
+                        font: {{
+                            color: 'black',
+                            size: 14, // Pixel size
+                            face: 'Arial' // A modern and widely used font
+                        }}
+                    }}
+                }}
+            }}
+                }},
+
+            relationships: {{
+            CONTAINS: {{
+                color: 'gray',
+                arrows: {{
+                    to: {{
+                        enabled: true,
+                        scaleFactor: 1.2 // Makes the arrow slightly larger
+                    }}
+                }},
+                font: {{
+                    color: 'black',
+                    size: 12,
+                    face: 'Arial'
+                }}
+            }}
+        }},
+        visConfig: {{
+            edges: {{
+                arrows: {{
+                    to: {{ enabled: true }}
+                }}
+            }}
+        }},
+
+
+                initialCypher: "{query}"
+        }};        
+        viz = new NeoVis.default(config);
+        viz.render();
+        
+    }}
+</script>
+
+<body onload="draw()">
+    <div id="viz"></div>
+</body>
+
+</html>
+"""
+
+
+    return graphVisualHTML 
+
+
+
+
+
      
 
 ## GRADIO UI LAYOUT & FUNCTIONALITY
 ## ---------------------------------------------------------------------------------------------------------------------
 
 with gr.Blocks(title='Slide Inspo', theme='Soft') as demo:
-     with gr.Row():
-          with gr.Column(scale=1):
-                gr.Markdown("# 1. Input: 🔍")
-                storyline_prompt = gr.Textbox(placeholder = 'Give us a topic and we will provide a storyline for you! For example: "Risk Management in Venture Capital"', 
-                                            label = 'Topic to build:',
-                                            lines=5,
-                                            scale = 3)
-                nr_storypoints_to_build = gr.Number(value=5,
-                                                label="How many storypoints?",
-                                                scale =1)
-                storyline_output_JSON = gr.JSON(visible=False)
-                storyline_output_storypoint_name_list = gr.List(visible=True, type="array")
-                btn = gr.Button("Build Storyline 🦄")
+    with gr.Row():
+        with gr.Column(scale=1):
+            gr.Markdown("# 1. Input: 🔍")
+            storyline_prompt = gr.Textbox(placeholder = 'Give us a topic and we will provide a storyline for you! For example: "Risk Management in Venture Capital"', 
+                                        label = 'Topic to build:',
+                                        lines=5,
+                                        scale = 3)
+            nr_storypoints_to_build = gr.Number(value=5,
+                                        label="How many storypoints?",
+                                        scale =1)
+            storyline_output_JSON = gr.JSON(visible=False)
+            storyline_output_storypoint_name_list = gr.List(visible=False, type="array")
+            btn = gr.Button("Build Storyline 🦄")
 
-          with gr.Column(scale=1):
-               gr.Markdown("# 2. Storyline: 🦄")
+        with gr.Column(scale=1):
+            gr.Markdown("# 2. Storyline: 🦄")
                             
-               storyline_output_pretty = gr.Textbox(label="Your Storyline:", lines=13, scale=3)
-               submit_button = gr.Button("⚡ Find Slides ⚡")
+            storyline_output_pretty = gr.Textbox(label="Your Storyline:", lines=13, scale=3)
+            submit_button = gr.Button("⚡ Find Slides ⚡")
+            submit_button.click(coordinate_simcalculation, inputs=[storyline_output_storypoint_name_list], outputs=[graphVisual])
 
-               btn.click(slide_deck_storyline, 
-                                        inputs = [storyline_prompt, nr_storypoints_to_build], 
-                                        outputs = [storyline_output_JSON, storyline_output_storypoint_name_list, storyline_output_pretty])
+            btn.click(slide_deck_storyline, 
+                                    inputs = [storyline_prompt, nr_storypoints_to_build], 
+                                    outputs = [storyline_output_JSON, storyline_output_storypoint_name_list, storyline_output_pretty])
                 
-               storyline_prompt.submit(slide_deck_storyline, 
-                                        inputs = [storyline_prompt, nr_storypoints_to_build], 
-                                        outputs = [storyline_output_JSON, storyline_output_storypoint_name_list, storyline_output_pretty])
+            storyline_prompt.submit(slide_deck_storyline, 
+                                    inputs = [storyline_prompt, nr_storypoints_to_build], 
+                                    outputs = [storyline_output_JSON, storyline_output_storypoint_name_list, storyline_output_pretty])
 
+
+    
+    with gr.Row():
+        graphVisual = gr.HTML()
 
 
 gr.close_all()
-demo.launch(share=True)
+demo.launch()
