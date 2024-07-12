@@ -110,6 +110,9 @@ client = OpenAI(api_key = os.getenv("OPENAI_API_KEY"))
 
 
 def get_embedding_inputstorypoints(storyline_output_storypoint_name_list, model="text-embedding-ada-002"):
+    #input has 5 colums, transform to 1 column
+    storyline_output_storypoint_name_list = [item for sublist in storyline_output_storypoint_name_list for item in sublist]
+
     # transform storyline_output_storypoint_name_list to pandas dataframe
     input_storypoints = pd.DataFrame(storyline_output_storypoint_name_list, columns=['description'])
     # get embeddings for input storypoints
