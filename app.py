@@ -263,7 +263,7 @@ async () => {{
                         }}
                     }}
                 }}
-                
+
             }}
                 }},
 
@@ -292,7 +292,7 @@ async () => {{
         }},
 
 
-                initialCypher: "{query}"
+                initialCypher: "MATCH (sp:STORYPOINT) WHERE sp.id IN ['-6035582888729766806A_outlier', '5556524941625029245A_outlier'] MATCH (sd:SLIDE_DECK)-[r2:CONTAINS]->(s:SLIDE)-[r1:ASSIGNED_TO]->(sp) RETURN sp, r1, s, r2, sd",
         }};        
         viz = new NeoVis.default(config);
         viz.render();
