@@ -348,7 +348,7 @@ with gr.Blocks(title='Slide Inspo', theme='Soft') as demo:
 
     
 
-    demo.load(None,None,None,_js=scripts)
+    demo.load(None,None,None,js=scripts)
     
 
 gr.close_all()
