@@ -211,7 +211,7 @@ def fetch_storypoints_and_slides(highest_similarities):
     return graphVisualHTML
 
 scripts = f"""
-<script>
+
 async () => {{
     const script = document.createElement("script");
     script.onload = () =>  console.log("d3 loaded") ;
@@ -263,6 +263,7 @@ async () => {{
                         }}
                     }}
                 }}
+                
             }}
                 }},
 
@@ -297,7 +298,7 @@ async () => {{
         viz.render();
         
     }}
-    </script>
+
 }}
 """
 
@@ -311,7 +312,7 @@ async () => {{
 ## GRADIO UI LAYOUT & FUNCTIONALITY
 ## ---------------------------------------------------------------------------------------------------------------------
 
-with gr.Blocks(title='Slide Inspo', theme='Soft', head=scripts) as demo:
+with gr.Blocks(title='Slide Inspo', theme='Soft', js=scripts) as demo:
     
     with gr.Row():
         graphVisual = gr.HTML()
