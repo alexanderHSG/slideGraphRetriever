@@ -211,6 +211,7 @@ def fetch_storypoints_and_slides(highest_similarities):
     return graphVisualHTML
 
 scripts = f"""
+<script>
 async () => {{
     const script = document.createElement("script");
     script.onload = () =>  console.log("d3 loaded") ;
@@ -296,6 +297,7 @@ async () => {{
         viz.render();
         
     }}
+    </script>
 }}
 """
 
@@ -309,7 +311,7 @@ async () => {{
 ## GRADIO UI LAYOUT & FUNCTIONALITY
 ## ---------------------------------------------------------------------------------------------------------------------
 
-with gr.Blocks(title='Slide Inspo', theme='Soft') as demo:
+with gr.Blocks(title='Slide Inspo', theme='Soft', head=scripts) as demo:
     
     with gr.Row():
         graphVisual = gr.HTML()
@@ -334,7 +336,7 @@ with gr.Blocks(title='Slide Inspo', theme='Soft') as demo:
                             
             storyline_output_pretty = gr.Textbox(label="Your Storyline:", lines=13, scale=3)
             submit_button = gr.Button("⚡ Find Slides ⚡")
-            submit_button.click(coordinate_simcalculation, inputs=[storyline_output_storypoint_name_list], outputs=[graphVisual], js=scripts)
+            submit_button.click(coordinate_simcalculation, inputs=[storyline_output_storypoint_name_list], outputs=[graphVisual])
 
             btn.click(slide_deck_storyline, 
                                     inputs = [storyline_prompt, nr_storypoints_to_build], 
