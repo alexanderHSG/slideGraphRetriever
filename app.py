@@ -190,6 +190,7 @@ def fetch_storypoints_and_slides(highest_similarities):
         #    print("Slide:", record["s"])
         #    print("Storypoint:", record["sp"])
 
+    
 
     graphVisualHTML = """
 
