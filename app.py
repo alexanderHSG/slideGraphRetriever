@@ -203,7 +203,6 @@ def fetch_storypoints_and_slides(highest_similarities):
             height: 700px;
         }
     </style>
-    <script src="https://rawgit.com/neo4j-contrib/neovis.js/master/dist/neovis.js"></script>
 </head>
 <body onload="draw()">
     <div id="viz"></div>
@@ -297,12 +296,6 @@ async () => {{
         viz.render();
         
     }}
-</script>
-
-<body onload="draw()">
-    <div id="viz"></div>
-</body>
-</html>
 }}
 """
 
