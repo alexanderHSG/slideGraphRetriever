@@ -368,7 +368,7 @@ async () => {
                 layout: {
                     improvedLayout: true,
                     hierarchical: true,
-                    clusterThreshold: 1,
+                    clusterThreshold: 100,
                 },
             },
             initialCypher: queryCypher,
@@ -473,15 +473,17 @@ with gr.Blocks(title='Slide Inspo', theme='Soft', js=scripts, head = js_click) a
                                         label="How many storypoints?",
                                         scale =1)
             storyline_output_JSON = gr.JSON(visible=False)
-            storyline_output_storypoint_name_list = gr.List(visible=False, type="array")
+            storyline_output_storypoint_name_list = gr.List(visible=True, type="array", interactive=True, row_count = [1,"fixed"], label="Edit you Storypoints: 📝", scale=1)
             btn = gr.Button("Build Storyline 🦄")
 
         with gr.Column(scale=1):
             gr.Markdown("# 2. Storyline: 🦄")
                             
-            storyline_output_pretty = gr.Textbox(label="Your Storyline:", lines=13, scale=3)
+            storyline_output_pretty = gr.Textbox(label="Your Storyline:", lines=13, scale=3, interactive=False)
             submit_button = gr.Button("⚡ Find Slides ⚡", elem_id="visGraph")
             submit_button.click(fn= coordinate_simcalculation, inputs=[storyline_output_storypoint_name_list], outputs=[graphVisual]).then(js = js_click)
+
+
 
             btn.click(slide_deck_storyline, 
                                     inputs = [storyline_prompt, nr_storypoints_to_build], 
