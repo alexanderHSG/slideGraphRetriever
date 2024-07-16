@@ -367,8 +367,8 @@ async () => {
             visConfig: {
                 layout: {
                     improvedLayout: true,
-                    hierarchical: true,
-                    clusterThreshold: 100,
+                    //hierarchical: true,
+                    clusterThreshold: 7,
                 },
             },
             initialCypher: queryCypher,
