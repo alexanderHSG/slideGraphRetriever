@@ -179,134 +179,276 @@ def coordinate_simcalculation(storyline_output_storypoint_name_list):
 def fetch_storypoints_and_slides(highest_similarities):
     storypoint_ids = [existing_id for _, existing_id, _ in highest_similarities]
 
+    global query
     query = f"""
-    MATCH (sp:STORYPOINT) WHERE sp.id IN {storypoint_ids}
-    MATCH (sp)<-[r1:ASSIGNED_TO]-(s:SLIDE)<-[r2:CONTAINS]-(sd:SLIDE_DECK)
-    RETURN sd, r1, s, r2, sp
-    """
-    #with driver.session() as session:
-        #result = session.run(query)
-        #print("These are the results:" + str(result))
-        #for record in result:
-        #    print("Slide Deck:", record["sd"])
-        #    print("Slide:", record["s"])
-        #    print("Storypoint:", record["sp"])
-
-    
-
-    graphVisualHTML = """
-
-<html>
-<head>
-    <title>DataViz</title>
-    <style type="text/css">
-        #viz {
-            width:  1400px;
-            height: 700px;
-        }
-    </style>
-</head>
-<body onload="draw()">
-    <div id="viz"></div>
-</body>
-</html>"""
-    return graphVisualHTML
-
-scripts = f"""
-
-async () => {{
-    const script = document.createElement("script");
-    script.onload = () =>  console.log("d3 loaded") ;
-    script.src = "https://rawgit.com/neo4j-contrib/neovis.js/master/dist/neovis.js";
-    document.head.appendChild(script);
-    var viz;
-    globalThis.draw() = () =>{{
-        var config = {{
-                containerId: "viz",
-                neo4j: {{
-                    serverUrl: "bolt://{os.getenv("NEO4J_URL")}:7687",
-                    serverUser: "{os.getenv("NEO4J_USERNAME")}",
-                    serverPassword: "{os.getenv("NEO4J_PASSWORD")}",
-                    driverConfig: {{
-                        encrypted: "ENCRYPTION_ON",
-                        trust: "TRUST_SYSTEM_CA_SIGNED_CERTIFICATES",
-                    }},
-                }},
-                labels: {{
-                    SLIDE: {{
-                        [NeoVis.NEOVIS_ADVANCED_CONFIG]: {{
-                        static: {{
-                            shape: "image" // Sets the shape to use an image (use "circularImage" for circular nodes)
-                        }},
-                        function: {{
-                            image: (node) => "https://slidestorage.s3.eu-north-1.amazonaws.com/" + node.properties.object_id + ".png"
-                        }}
-                        }}
-                    }},
-                    STORYPOINT:{{
-                        label:"description",
-
-                [NeoVis.NEOVIS_ADVANCED_CONFIG]: {{
-                    static: {{
-                        caption: "description",
-                        shape: 'box',
-                        color: {{
-                            background: 'white',
-                            border: 'lightgray',
-                            highlight: {{
-                                background: 'lightblue',
-                                border: 'blue'
-                            }}
-                        }},
-                        font: {{
-                            color: 'black',
-                            size: 14, // Pixel size
-                            face: 'Arial' // A modern and widely used font
-                        }}
-                    }}
-                }}
-
-            }}
-                }},
-
-            relationships: {{
-            CONTAINS: {{
-                color: 'gray',
-                arrows: {{
-                    to: {{
-                        enabled: true,
-                        scaleFactor: 1.2 // Makes the arrow slightly larger
-                    }}
-                }},
-                font: {{
-                    color: 'black',
-                    size: 12,
-                    face: 'Arial'
-                }}
-            }}
-        }},
-        visConfig: {{
-            edges: {{
-                arrows: {{
-                    to: {{ enabled: true }}
-                }}
-            }}
-        }},
-
-
-                initialCypher: "MATCH (sp:STORYPOINT) WHERE sp.id IN ['-6035582888729766806A_outlier', '5556524941625029245A_outlier'] MATCH (sd:SLIDE_DECK)-[r2:CONTAINS]->(s:SLIDE)-[r1:ASSIGNED_TO]->(sp) RETURN sp, r1, s, r2, sd",
-        }};        
-        viz = new NeoVis.default(config);
-        viz.render();
-        
-    }}
-
-}}
+WITH {storypoint_ids} AS ids
+MATCH (sp:STORYPOINT) WHERE sp.id IN ids
+WITH sp
+ORDER BY apoc.coll.indexOf(ids, sp.id)
+WITH COLLECT(sp) AS sps
+UNWIND RANGE(0, SIZE(sps) - 2) AS idx
+WITH sps, sps[idx] AS sp_start, sps[idx + 1] AS sp_end
+CALL apoc.create.vRelationship(sp_start, 'FOLLOWS', {{}}, sp_end) YIELD rel
+WITH sps, sp_start, rel, sp_end
+UNWIND sps AS sp
+MATCH (sp)<-[r1:ASSIGNED_TO]-(s:SLIDE)<-[r2:CONTAINS]-(sd:SLIDE_DECK)
+RETURN sd, r1, s, r2, sp, sp_start, rel, sp_end
 """
 
 
 
+    graphVisualHTML = f"""
+<head>
+    <title>DataViz</title>
+    <style type="text/css">
+        body {{
+            background-color: #f5f5f5; /* Light grey background for the entire page */
+        }}
+        #viz {{
+            width: 1200px;
+            height: 700px;
+            border: 3px solid black; /* Adds a border around the viz div */
+            background-color: #f0f0f0; /* Lighter grey background for the viz div */
+            padding: 20px; /* Adds padding inside the div */
+        }}
+        .heading {{
+            font-size: 24px;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 20px;
+        }}
+        #queryCypher {{
+            opacity: 0;
+        }}
+    </style>
+</head>
+<body>
+    <h1 class="heading">Visualization of your retrieved Slide Graph</h1>
+    <div id="viz">
+        <p id="queryCypher">{query}</p>
+    </div>
+</body>
+    """
+    return graphVisualHTML
 
+scripts = """
+
+async () => {
+ 
+    const script = document.createElement("script");
+    script.src = "https://rawgit.com/neo4j-contrib/neovis.js/master/dist/neovis.js";
+    document.head.appendChild(script);
+
+    globalThis.draw = (queryCypher) =>{
+     
+        var config = {
+                containerId: "viz",
+                neo4j: {
+                    serverUrl: "bolt://"""+os.getenv("NEO4J_URL")+""":7687",
+                    serverUser: \""""+os.getenv("NEO4J_USERNAME")+"""\",
+                    serverPassword: \""""+os.getenv("NEO4J_PASSWORD")+"""\",
+                    driverConfig: {
+                        encrypted: "ENCRYPTION_ON",
+                        trust: "TRUST_SYSTEM_CA_SIGNED_CERTIFICATES",
+                    },
+                },
+                labels: {
+                    SLIDE: {
+                        [NeoVis.NEOVIS_ADVANCED_CONFIG]: {
+                        static: {
+                            shape: "image" // Sets the shape to use an image (use "circularImage" for circular nodes)
+                        },
+                        function: {
+                            image: (node) => "https://slidestorage.s3.eu-north-1.amazonaws.com/" + node.properties.object_id + ".png"
+                        }
+                        }
+                    },
+            STORYPOINT: {
+                label: "description",
+                [NeoVis.NEOVIS_ADVANCED_CONFIG]: {
+                    static: {
+                        caption: "description",
+                        shape: 'box',
+                        color: {
+                            background: 'white',
+                            border: 'lightgray',
+                            highlight: {
+                                background: 'lightblue',
+                                border: 'blue'
+                            }
+                        },
+                        font: {
+                            color: 'black',
+                            size: 14, // Pixel size
+                            face: 'Helvetica' // Uniform font across all graph elements
+                        }
+                    }
+                }
+            },
+            SLIDE_DECK: {
+                label: "title",
+                [NeoVis.NEOVIS_ADVANCED_CONFIG]: {
+                    static: {
+                        caption: "title",
+                        shape: 'circle', // Updated to circle for a uniform and standard appearance
+                        color: {
+                            background: 'lightyellow',
+                            border: 'gold',
+                            highlight: {
+                                background: 'yellow',
+                                border: 'darkorange'
+                            }
+                        },
+                        font: {
+                            color: 'black',
+                            size: 14, // Pixel size
+                            face: 'Helvetica' // Uniform font across all graph elements
+                        }
+                    }
+                }
+            }
+
+            },
+
+			relationships: {
+				CONTAINS: {
+					[NeoVis.NEOVIS_ADVANCED_CONFIG]: {
+						static: {
+							label: "Contains",
+							thickness: 2, // Enhanced thickness for better visibility
+							color: '#34495e', // Deep, neutral blue color for a modern look
+							font: {
+								color: '#2c3e50', // Dark grey color for strong contrast against light background
+								size: 14, // Larger font size for enhanced readability
+								face: 'Helvetica' // Modern font for a clean appearance
+							},
+							dashes: false, // Solid line to indicate a strong, permanent relationship
+						}
+					}
+				},
+				ASSIGNED_TO: {
+					[NeoVis.NEOVIS_ADVANCED_CONFIG]: {
+						static: {
+							label: "Assigned To",
+							thickness: 2, // Consistent thickness across all relationship types
+							color: '#16a085', // Distinctive teal color to differentiate from 'CONTAINS'
+							font: {
+								color: '#2c3e50', // Dark grey to maintain visibility and consistency
+								size: 14,
+								face: 'Helvetica'
+							},
+							arrows: {
+								to: { enabled: true, scaleFactor: 1.2 } // Prominent arrow for visual emphasis
+							},
+						}
+					}
+				},
+				FOLLOWS: {
+					[NeoVis.NEOVIS_ADVANCED_CONFIG]: {
+						static: {
+							label: "Follows",
+							thickness: 2,
+							color: '#8e44ad', // Soft purple for visual distinction
+							font: {
+								color: '#2c3e50', // Dark grey to ensure readability on light backgrounds
+								size: 14,
+								face: 'Helvetica'
+							},
+							arrows: {
+								to: { enabled: true, scaleFactor: 1.5 } // Larger arrow to denote directionality
+							},
+							dashes: true // Dashed line to indicate a temporal or less permanent relationship
+						}
+					}
+				},
+			},
+
+            
+            visConfig: {
+                layout: {
+                    improvedLayout: true,
+                    hierarchical: true,
+                    clusterThreshold: 1,
+                },
+            },
+            initialCypher: queryCypher,
+        };
+
+        console.log("Drawing visualization");
+        var viz = document.getElementById("viz");
+
+        if (!viz) {
+            console.error("Visualization container not found.");
+            return;
+        }      
+
+        try {
+            viz = new NeoVis.default(config);
+            viz.render();
+            
+        } catch (error) {
+            console.error('Error rendering NeoVis:', error);
+        }
+        
+        const button = document.getElementById("visGraph");
+        if (button) {
+            button.addEventListener('click', draw);
+        } else {
+            console.error('Button not found.');
+        }
+        
+    }
+
+    script.onload = () => {
+        console.log("NeoVis.js loaded"); 
+        //draw();
+    };
+
+
+}
+"""
+
+
+
+js_click = """
+<script>
+
+// Function to handle the mutations
+function handleMutations(mutations) {
+    for (let mutation of mutations) {
+        if (mutation.type === 'childList') {
+            const drawElement = document.getElementById('viz');
+            if (drawElement) {
+                var element = document.getElementById('queryCypher');  // Access the element by its ID
+                var text = element.innerText; 
+                draw(text);
+                console.log('Call draw function.');
+                // Disconnect the observer after clicking the drawElement is found
+                observer.disconnect();
+                return;
+            }
+        }
+    }
+}
+
+// Create a new MutationObserver instance
+const observer = new MutationObserver(handleMutations);
+
+// Configuration of the observer:
+const config = {
+    childList: true,  // Observe direct children
+    subtree: true,    // Observe all descendants
+    attributes: false // Do not observe attribute changes
+};
+
+// Start observing the body for configured mutations
+observer.observe(document.body, config);
+
+console.log("Observer is set to monitor changes in the document body.");
+
+
+</script>
+"""
 
 
      
@@ -314,7 +456,7 @@ async () => {{
 ## GRADIO UI LAYOUT & FUNCTIONALITY
 ## ---------------------------------------------------------------------------------------------------------------------
 
-with gr.Blocks(title='Slide Inspo', theme='Soft', js=scripts) as demo:
+with gr.Blocks(title='Slide Inspo', theme='Soft', js=scripts, head = js_click) as demo:
     
     with gr.Row():
         graphVisual = gr.HTML()
@@ -338,8 +480,8 @@ with gr.Blocks(title='Slide Inspo', theme='Soft', js=scripts) as demo:
             gr.Markdown("# 2. Storyline: 🦄")
                             
             storyline_output_pretty = gr.Textbox(label="Your Storyline:", lines=13, scale=3)
-            submit_button = gr.Button("⚡ Find Slides ⚡")
-            submit_button.click(coordinate_simcalculation, inputs=[storyline_output_storypoint_name_list], outputs=[graphVisual])
+            submit_button = gr.Button("⚡ Find Slides ⚡", elem_id="visGraph")
+            submit_button.click(fn= coordinate_simcalculation, inputs=[storyline_output_storypoint_name_list], outputs=[graphVisual]).then(js = js_click)
 
             btn.click(slide_deck_storyline, 
                                     inputs = [storyline_prompt, nr_storypoints_to_build], 
@@ -349,9 +491,6 @@ with gr.Blocks(title='Slide Inspo', theme='Soft', js=scripts) as demo:
                                     inputs = [storyline_prompt, nr_storypoints_to_build], 
                                     outputs = [storyline_output_JSON, storyline_output_storypoint_name_list, storyline_output_pretty])
 
-
-
-    
 
 
     
