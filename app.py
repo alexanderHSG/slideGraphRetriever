@@ -473,7 +473,7 @@ with gr.Blocks(title='Slide Inspo', theme='Soft', js=scripts, head = js_click) a
                                         label="How many storypoints?",
                                         scale =1)
             storyline_output_JSON = gr.JSON(visible=False)
-            storyline_output_storypoint_name_list = gr.List(visible=True, type="array", interactive=True, row_count = [1,"fixed"], label="Edit you Storypoints: 📝", scale=1)
+            storyline_output_storypoint_name_list = gr.List(visible=False, type="array", interactive=False, row_count = [1,"fixed"], label="Edit you Storypoints: 📝", scale=1)
             btn = gr.Button("Build Storyline 🦄")
 
         with gr.Column(scale=1):
