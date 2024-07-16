@@ -465,7 +465,7 @@ with gr.Blocks(title='Slide Inspo', theme='Soft', js=scripts, head = js_click) a
     with gr.Row():
         with gr.Column(scale=1):
             gr.Markdown("# 1. Input: 🔍")
-            storyline_prompt = gr.Textbox(placeholder = 'Give us a topic and we will provide a storyline for you! For example: "Risk Management in Venture Capital"', 
+            storyline_prompt = gr.Textbox(placeholder = 'Give us a topic and we will provide a storyline for you! For example: "SCRUM in Software Development"', 
                                         label = 'Topic to build:',
                                         lines=5,
                                         scale = 3)
