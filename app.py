@@ -112,7 +112,7 @@ client = OpenAI(api_key = os.getenv("OPENAI_API_KEY"))
 
 
 
-def get_embedding_inputstorypoints(storyline_output_storypoint_name_list, model="text-embedding-ada-002"):
+def get_embedding_inputstorypoints(storyline_output_storypoint_name_list, model="text-embedding-3-large"):
     #input has 5 colums, transform to 1 column
     storyline_output_storypoint_name_list = [item for sublist in storyline_output_storypoint_name_list for item in sublist]
 
@@ -456,7 +456,7 @@ console.log("Observer is set to monitor changes in the document body.");
 ## GRADIO UI LAYOUT & FUNCTIONALITY
 ## ---------------------------------------------------------------------------------------------------------------------
 
-with gr.Blocks(title='Slide Inspo', theme='Soft', js=scripts, head = js_click) as demo:
+with gr.Blocks(title='Slide Inspo', theme='Soft', js=scripts, head = js_click).queue(default_concurrency_limit=5) as demo:
     
     with gr.Row():
         graphVisual = gr.HTML()
