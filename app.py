@@ -207,13 +207,12 @@ RETURN sd, r1, s, r2, sp, sp_start, rel, sp_end
         #viz {{
             width: 1200px;
             height: 700px;
-            border: 3px solid black; /* Adds a border around the viz div */
+            border: 2px solid black; /* Adds a border around the viz div */
             background-color: #f0f0f0; /* Lighter grey background for the viz div */
-            padding: 20px; /* Adds padding inside the div */
+            padding: 10px; /* Adds padding inside the div */
         }}
         .heading {{
             font-size: 24px;
-            font-weight: bold;
             text-align: center;
             margin-bottom: 20px;
         }}
@@ -223,7 +222,7 @@ RETURN sd, r1, s, r2, sp, sp_start, rel, sp_end
     </style>
 </head>
 <body>
-    <h1 class="heading">Visualization of your retrieved Slide Graph</h1>
+    <h1 class="heading">Visualization of Your Retrieved Slide Graph</h1>
     <div id="viz">
         <p id="queryCypher">{query}</p>
     </div>
@@ -390,12 +389,7 @@ async () => {
             console.error('Error rendering NeoVis:', error);
         }
         
-        const button = document.getElementById("visGraph");
-        if (button) {
-            button.addEventListener('click', draw);
-        } else {
-            console.error('Button not found.');
-        }
+
         
     }
 
@@ -419,12 +413,12 @@ function handleMutations(mutations) {
         if (mutation.type === 'childList') {
             const drawElement = document.getElementById('viz');
             if (drawElement) {
+                console.log('Call draw function.');
                 var element = document.getElementById('queryCypher');  // Access the element by its ID
                 var text = element.innerText; 
                 draw(text);
-                console.log('Call draw function.');
                 // Disconnect the observer after clicking the drawElement is found
-                observer.disconnect();
+                //observer.disconnect();
                 return;
             }
         }
@@ -450,8 +444,6 @@ console.log("Observer is set to monitor changes in the document body.");
 </script>
 """
 
-
-     
 
 ## GRADIO UI LAYOUT & FUNCTIONALITY
 ## ---------------------------------------------------------------------------------------------------------------------
