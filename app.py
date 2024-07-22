@@ -224,7 +224,6 @@ def construct_hmtl(highest_similarities, nodes_to_show=["SLIDE_DECK", "SLIDE", "
     
     
 
-
     graphVisualHTML = f"""
 <head>
     <title>DataViz</title>
