@@ -482,6 +482,7 @@ filterBTN = gr.Button("Filter Graph")
 
 with gr.Blocks(title='Slide Inspo', theme='Soft', js=scripts, head = js_click).queue(default_concurrency_limit=1) as demo:
     
+    highest_similarities_gradio_list.render()
     with gr.Row():
         with gr.Column(scale=1):
             gr.Markdown("# 1. Input: 🔍")
