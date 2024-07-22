@@ -475,22 +475,12 @@ console.log("Observer is set to monitor changes in the document body.");
 
 ## GRADIO UI LAYOUT & FUNCTIONALITY
 ## ---------------------------------------------------------------------------------------------------------------------
+graphVisual = gr.HTML()
+highest_similarities_gradio_list = gr.List(type="array", interactive=False, visible=False)
+nodeSelector = gr.Dropdown(label="Filter for nodes", choices=["SLIDE_DECK", "SLIDE", "STORYPOINT"], value=["SLIDE_DECK", "SLIDE", "STORYPOINT"], multiselect=True, scale=1)
+filterBTN = gr.Button("Filter Graph")
 
 with gr.Blocks(title='Slide Inspo', theme='Soft', js=scripts, head = js_click).queue(default_concurrency_limit=1) as demo:
-    
-    with gr.Row():
-        graphVisual = gr.HTML()
-        highest_similarities_gradio_list = gr.List(type="array", interactive=False, visible=False)
-
-    with gr.Row():
-        with gr.Column(scale=1):
-            nodeSelector = gr.Dropdown(label="Filter for nodes", choices=["SLIDE_DECK", "SLIDE", "STORYPOINT"], value=["SLIDE_DECK", "SLIDE", "STORYPOINT"], multiselect=True, scale=1)
-        with gr.Column(scale=1):
-            filterBTN = gr.Button("Filter Graph")
-            filterBTN.click(fn= construct_hmtl, inputs=[highest_similarities_gradio_list, nodeSelector], outputs=[graphVisual]).then(js = js_click)
-
-           
-
     
     with gr.Row():
         with gr.Column(scale=1):
@@ -522,6 +512,17 @@ with gr.Blocks(title='Slide Inspo', theme='Soft', js=scripts, head = js_click).q
             storyline_prompt.submit(slide_deck_storyline, 
                                     inputs = [storyline_prompt, nr_storypoints_to_build], 
                                     outputs = [storyline_output_JSON, storyline_output_storypoint_name_list, storyline_output_pretty])
+
+
+    with gr.Row():
+        with gr.Column(scale=1):
+            nodeSelector.render()
+        with gr.Column(scale=1):
+            filterBTN.render()
+            filterBTN.click(fn= construct_hmtl, inputs=[highest_similarities_gradio_list, nodeSelector], outputs=[graphVisual]).then(js = js_click)
+
+    with gr.Row():
+        graphVisual.render()
 
 
 
