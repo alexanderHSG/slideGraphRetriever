@@ -18,7 +18,8 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 neo4j_url = "neo4j+s://" + str(os.getenv("NEO4J_URL"))
 AUTH = (os.getenv("NEO4J_USERNAME"), os.getenv("NEO4J_PASSWORD"))
 driver = GraphDatabase.driver(neo4j_url, auth=AUTH)
-query = None
+
+
 
 
 
@@ -28,7 +29,7 @@ query = None
 # ---------------------------------------------------------------------------------------------------------------------
 
 #standard API Call to open AI with system prompt and user prompts.
-def chat(system_prompt, user_prompt, model="gpt-3.5-turbo-1106", temperature=0):
+def chat(system_prompt, user_prompt, model="gpt-4o-mini", temperature=0):
     response = openai.chat.completions.create(
         model = model,
 
@@ -74,7 +75,7 @@ def slide_deck_storyline(storyline_prompt, nr_of_storypoints=5):
                         """
 
      response = openai.chat.completions.create(
-            model = "gpt-3.5-turbo-1106", 
+            model = "gpt-4o-mini", 
             response_format = {"type": "json_object"},
             messages = [
             {"role": "system", "content": system_prompt},
@@ -148,9 +149,10 @@ def find_highest_similarities(existing_embeddings, new_embeddings):
     # Calculate cosine similarity
     similarity_matrix = cosine_similarity(new_vecs, existing_vecs)
 
-    # Find the index with the highest similarity for each new embedding
+    # Find the index with the highest similarity for each new embeddin TODO: Replace with top 5 most similar
     max_indices = np.argmax(similarity_matrix, axis=1)
     similarities = np.max(similarity_matrix, axis=1)
+
 
     # Pair each new storypoint with the existing one that has the highest similarity
     highest_pairs = [(new_ids[i], existing_ids[max_indices[i]], similarities[i]) for i in range(len(new_ids))]
@@ -171,15 +173,37 @@ def coordinate_simcalculation(storyline_output_storypoint_name_list):
     for new_id, existing_id, similarity in highest_similarities:
         print(f"Input STORYPOINT '{new_id}' is most similar to existing STORYPOINT '{existing_id}' with a similarity of {similarity:.2f}")
 
-    HTMLoutput = fetch_storypoints_and_slides(highest_similarities)
+    HTMLoutput = construct_hmtl(highest_similarities)
 
-    return HTMLoutput
+    return HTMLoutput, highest_similarities
 
+def construct_hmtl(highest_similarities, nodes_to_show=["SLIDE_DECK", "SLIDE", "STORYPOINT"]):
 
-def fetch_storypoints_and_slides(highest_similarities):
     storypoint_ids = [existing_id for _, existing_id, _ in highest_similarities]
+    print(storypoint_ids)
 
-    global query
+
+    # Preparing a filtered query that selectively includes nodes and relationships based on `nodes_to_show`
+    include_sp = 'sp' if 'STORYPOINT' in nodes_to_show else ''
+    include_slide = 's' if 'SLIDE' in nodes_to_show else ''
+    include_deck = 'sd' if 'SLIDE_DECK' in nodes_to_show else ''
+
+    # Create a list to assemble return components based on specified nodes to show
+    return_components = [comp for comp in [include_sp, include_slide, include_deck, 'sp_start', 'rel', 'sp_end'] if comp]
+
+    # Ensuring relationships (r1, r2) are included if both ends are to be shown
+    include_r1 = 'r1' if 'STORYPOINT' in nodes_to_show and 'SLIDE' in nodes_to_show else ''
+    include_r2 = 'r2' if 'SLIDE' in nodes_to_show and 'SLIDE_DECK' in nodes_to_show else ''
+
+    # Adding relationships to the return if applicable
+    if include_r1:
+        return_components.append('r1')
+    if include_r2:
+        return_components.append('r2')
+
+    # Joining components to form a complete RETURN clause
+    return_clause = ', '.join(return_components)
+
     query = f"""
 WITH {storypoint_ids} AS ids
 MATCH (sp:STORYPOINT) WHERE sp.id IN ids
@@ -191,10 +215,10 @@ WITH sps, sps[idx] AS sp_start, sps[idx + 1] AS sp_end
 CALL apoc.create.vRelationship(sp_start, 'FOLLOWS', {{}}, sp_end) YIELD rel
 WITH sps, sp_start, rel, sp_end
 UNWIND sps AS sp
-MATCH (sp)<-[r1:ASSIGNED_TO]-(s:SLIDE)<-[r2:CONTAINS]-(sd:SLIDE_DECK)
-RETURN sd, r1, s, r2, sp, sp_start, rel, sp_end
+OPTIONAL MATCH (sp)<-[r1:ASSIGNED_TO]-(s:SLIDE)
+OPTIONAL MATCH (s)<-[r2:CONTAINS]-(sd:SLIDE_DECK)
+RETURN {return_clause}
 """
-
 
 
     graphVisualHTML = f"""
@@ -452,6 +476,16 @@ with gr.Blocks(title='Slide Inspo', theme='Soft', js=scripts, head = js_click).q
     
     with gr.Row():
         graphVisual = gr.HTML()
+        highest_similarities_gradio_list = gr.List(type="array", interactive=False, visible=False)
+
+    with gr.Row():
+        with gr.Column(scale=1):
+            nodeSelector = gr.Dropdown(label="Filter for nodes", choices=["SLIDE_DECK", "SLIDE", "STORYPOINT"], value=["SLIDE_DECK", "SLIDE", "STORYPOINT"], multiselect=True, scale=1)
+        with gr.Column(scale=1):
+            filterBTN = gr.Button("Filter Graph")
+            filterBTN.click(fn= construct_hmtl, inputs=[highest_similarities_gradio_list, nodeSelector], outputs=[graphVisual]).then(js = js_click)
+
+           
 
     
     with gr.Row():
@@ -473,7 +507,7 @@ with gr.Blocks(title='Slide Inspo', theme='Soft', js=scripts, head = js_click).q
                             
             storyline_output_pretty = gr.Textbox(label="Your Storyline:", lines=13, scale=3, interactive=False)
             submit_button = gr.Button("⚡ Find Slides ⚡", elem_id="visGraph")
-            submit_button.click(fn= coordinate_simcalculation, inputs=[storyline_output_storypoint_name_list], outputs=[graphVisual]).then(js = js_click)
+            submit_button.click(fn= coordinate_simcalculation, inputs=[storyline_output_storypoint_name_list], outputs=[graphVisual, highest_similarities_gradio_list]).then(js = js_click)
 
 
 
