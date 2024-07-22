@@ -183,42 +183,46 @@ def construct_hmtl(highest_similarities, nodes_to_show=["SLIDE_DECK", "SLIDE", "
     print(storypoint_ids)
 
 
-    # Preparing a filtered query that selectively includes nodes and relationships based on `nodes_to_show`
-    include_sp = 'sp' if 'STORYPOINT' in nodes_to_show else ''
-    include_slide = 's' if 'SLIDE' in nodes_to_show else ''
-    include_deck = 'sd' if 'SLIDE_DECK' in nodes_to_show else ''
+    # Starting with the base of the query
+    query_parts = [
+        f"WITH {storypoint_ids} AS ids",
+        "MATCH (sp:STORYPOINT) WHERE sp.id IN ids",
+        "WITH sp",
+        "ORDER BY apoc.coll.indexOf(ids, sp.id)",
+        "WITH COLLECT(sp) AS sps",
+        "UNWIND RANGE(0, SIZE(sps) - 2) AS idx",
+        "WITH sps, sps[idx] AS sp_start, sps[idx + 1] AS sp_end",
+        "CALL apoc.create.vRelationship(sp_start, 'FOLLOWS', {}, sp_end) YIELD rel",
+        "WITH sps, sp_start, rel, sp_end",
+        "UNWIND sps AS sp"
+    ]
 
-    # Create a list to assemble return components based on specified nodes to show
-    return_components = [comp for comp in [include_sp, include_slide, include_deck, 'sp_start', 'rel', 'sp_end'] if comp]
+    # Initialize the match and return parts of the query
+    match_parts = []
+    return_parts = []
 
-    # Ensuring relationships (r1, r2) are included if both ends are to be shown
-    include_r1 = 'r1' if 'STORYPOINT' in nodes_to_show and 'SLIDE' in nodes_to_show else ''
-    include_r2 = 'r2' if 'SLIDE' in nodes_to_show and 'SLIDE_DECK' in nodes_to_show else ''
+    # Include virtual relationship and its nodes conditionally
+    if "STORYPOINT" in nodes_to_show:
+        return_parts.extend(["sp_start", "rel", "sp_end", "sp"])
+    
+    # Conditionally add SLIDE and SLIDE_DECK with their relationships
+    if "SLIDE" in nodes_to_show or "SLIDE_DECK" in nodes_to_show:
+        match_parts.append("(sp)<-[r1:ASSIGNED_TO]-(s:SLIDE)")
+        return_parts.extend(["s", "r1"])
+        if "SLIDE_DECK" in nodes_to_show:
+            match_parts.append("<-[r2:CONTAINS]-(sd:SLIDE_DECK)")
+            return_parts.extend(["sd", "r2"])
 
-    # Adding relationships to the return if applicable
-    if include_r1:
-        return_components.append('r1')
-    if include_r2:
-        return_components.append('r2')
-
-    # Joining components to form a complete RETURN clause
-    return_clause = ', '.join(return_components)
-
-    query = f"""
-WITH {storypoint_ids} AS ids
-MATCH (sp:STORYPOINT) WHERE sp.id IN ids
-WITH sp
-ORDER BY apoc.coll.indexOf(ids, sp.id)
-WITH COLLECT(sp) AS sps
-UNWIND RANGE(0, SIZE(sps) - 2) AS idx
-WITH sps, sps[idx] AS sp_start, sps[idx + 1] AS sp_end
-CALL apoc.create.vRelationship(sp_start, 'FOLLOWS', {{}}, sp_end) YIELD rel
-WITH sps, sp_start, rel, sp_end
-UNWIND sps AS sp
-OPTIONAL MATCH (sp)<-[r1:ASSIGNED_TO]-(s:SLIDE)
-OPTIONAL MATCH (s)<-[r2:CONTAINS]-(sd:SLIDE_DECK)
-RETURN {return_clause}
-"""
+    # Construct the final query
+    query = "\n".join(query_parts)
+    if match_parts:
+        query += "\nMATCH " + "".join(match_parts)
+    if return_parts:
+        query += "\nRETURN " + ", ".join(return_parts)
+    else:
+        query += "\nRETURN 'No nodes to show based on the selected types'"
+    
+    
 
 
     graphVisualHTML = f"""
