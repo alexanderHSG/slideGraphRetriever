@@ -230,12 +230,15 @@ def construct_hmtl(highest_similarities, nodes_to_show=["SLIDE_DECK", "SLIDE", "
     <title>DataViz</title>
     <style type="text/css">
         body {{
-            background-color: #f5f5f5; /* Light grey background for the entire page */
+            display: flex; /* Use flexbox to align children */
+            justify-content: center; /* Center horizontally in the flex container */
+            align-items: center; /* Center vertically if desired */
+            min-height: 100vh; /* Ensure the body takes at least the height of the viewport */
+            margin: 0; /* Remove default margin */
         }}
         #viz {{
             width: 1200px;
             height: 700px;
-            border: 2px solid black; /* Adds a border around the viz div */
             background-color: #f0f0f0; /* Lighter grey background for the viz div */
             padding: 10px; /* Adds padding inside the div */
         }}
@@ -250,7 +253,6 @@ def construct_hmtl(highest_similarities, nodes_to_show=["SLIDE_DECK", "SLIDE", "
     </style>
 </head>
 <body>
-    <h1 class="heading">Visualization of Your Retrieved Slide Graph</h1>
     <div id="viz">
         <p id="queryCypher">{query}</p>
     </div>
@@ -477,8 +479,8 @@ console.log("Observer is set to monitor changes in the document body.");
 ## ---------------------------------------------------------------------------------------------------------------------
 graphVisual = gr.HTML()
 highest_similarities_gradio_list = gr.List(type="array", interactive=False, visible=False)
-nodeSelector = gr.Dropdown(label="Filter for nodes", choices=["SLIDE_DECK", "SLIDE", "STORYPOINT"], value=["SLIDE_DECK", "SLIDE", "STORYPOINT"], multiselect=True, scale=1)
-filterBTN = gr.Button("Filter Graph")
+nodeSelector = gr.Dropdown(label="Filter nodes", choices=["SLIDE_DECK", "SLIDE", "STORYPOINT"], value=["SLIDE_DECK", "SLIDE", "STORYPOINT"], multiselect=True, scale=1)
+filterBTN = gr.Button("Apply Filter")
 
 with gr.Blocks(title='Slide Inspo', theme='Soft', js=scripts, head = js_click).queue(default_concurrency_limit=1) as demo:
     
@@ -516,14 +518,15 @@ with gr.Blocks(title='Slide Inspo', theme='Soft', js=scripts, head = js_click).q
 
 
     with gr.Row():
-        with gr.Column(scale=1):
-            nodeSelector.render()
-        with gr.Column(scale=1):
-            filterBTN.render()
-            filterBTN.click(fn= construct_hmtl, inputs=[highest_similarities_gradio_list, nodeSelector], outputs=[graphVisual]).then(js = js_click)
+        with gr.Group():
+            with gr.Column(scale=1):
+                nodeSelector.render()
+            with gr.Column(scale=1):
+                filterBTN.render()
+                filterBTN.click(fn= construct_hmtl, inputs=[highest_similarities_gradio_list, nodeSelector], outputs=[graphVisual]).then(js = js_click)
 
-    with gr.Row():
-        graphVisual.render()
+            with gr.Row():
+                graphVisual.render()
 
 
 
