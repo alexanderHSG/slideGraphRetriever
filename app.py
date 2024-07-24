@@ -84,10 +84,15 @@ def slide_deck_storyline(storyline_prompt, nr_of_storypoints=5):
             )
      res = response.choices[0].message.content
      map = json.loads(res)
-     pretty_list = "\n".join([f"⚡ {key}: {value}" for key, value in map.items()])
+     #pretty_list = "\n".join([f"⚡ {key}: {value}" for key, value in map.items()])
      storypoint_name_list = [map[key] for key in map]
      storypoint_name_nested = [storypoint_name_list]
-     return map, storypoint_name_nested, pretty_list
+     storypoint_name_nested = list(zip(*storypoint_name_nested))
+     #add one column to the list with the name of the storypoint
+
+     storypoint_name_nested = [[f"SP {i}", item] for i, item in enumerate(storypoint_name_nested, 1)]
+
+     return map, storypoint_name_nested
 
 #we need this function to turn the non iterable nested list that is gr.List into a simple list.
 def iterator_for_gr(nested_list, i):
@@ -114,8 +119,9 @@ client = OpenAI(api_key = os.getenv("OPENAI_API_KEY"))
 
 
 def get_embedding_inputstorypoints(storyline_output_storypoint_name_list, model="text-embedding-3-large"):
-    #input has 5 colums, transform to 1 column
-    storyline_output_storypoint_name_list = [item for sublist in storyline_output_storypoint_name_list for item in sublist]
+
+    #input has 2 colums, pick the second column
+    storyline_output_storypoint_name_list = [[item[1]] if type(item[1]) is not list else item[1] for item in storyline_output_storypoint_name_list if len(item) > 1]
 
     # transform storyline_output_storypoint_name_list to pandas dataframe
     input_storypoints = pd.DataFrame(storyline_output_storypoint_name_list, columns=['description'])
@@ -225,6 +231,7 @@ def construct_hmtl(highest_similarities, nodes_to_show=["SLIDE_DECK", "SLIDE", "
     
 
     graphVisualHTML = f"""
+
 <head>
     <title>DataViz</title>
     <style type="text/css">
@@ -252,8 +259,18 @@ def construct_hmtl(highest_similarities, nodes_to_show=["SLIDE_DECK", "SLIDE", "
     </style>
 </head>
 <body>
+
+    
+
     <div id="viz">
         <p id="queryCypher">{query}</p>
+    </div>
+    
+    <div class="custom-menu" style="display: none; position: absolute; z-index: 1000; background: white; border: 1px solid #ccc; padding: 5px; box-shadow: 2px 2px 5px #888;">
+        <ul>
+            <li onclick="alert('Action 1')">Action 1</li>
+            <li onclick="alert('Action 2')">Action 2</li>
+        </ul>
     </div>
 </body>
     """
@@ -413,6 +430,21 @@ async () => {
         try {
             viz = new NeoVis.default(config);
             viz.render();
+            viz.registerOnEvent("completed", () => {
+                viz.network.on("oncontext", function (params) {
+                    params.event.preventDefault();
+                    const customMenu = document.querySelector('.custom-menu');
+                    
+                    if (customMenu) {
+                    console.log("Displaying custom menu.");
+                        const containerRect = document.getElementById('viz').getBoundingClientRect();
+                        customMenu.style.display = 'block';
+                        customMenu.style.top = `${params.event.pageY - containerRect.top + window.scrollY}px`;
+                        customMenu.style.left = `${params.event.pageX - containerRect.left + window.scrollX}px`;
+                    }
+                });
+            });
+
             
         } catch (error) {
             console.error('Error rendering NeoVis:', error);
@@ -473,6 +505,22 @@ console.log("Observer is set to monitor changes in the document body.");
 </script>
 """
 
+css = """
+#SPList {
+    font-family: 'Arial', sans-serif;
+    background-color: #f8f9fa;
+    color: #333;
+    background-color: #ffffff;
+    color: #333;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 10px;
+    margin: 5px;
+}
+#SPList .gr-array-container {
+    gap: 10px;
+}"""
+
 
 ## GRADIO UI LAYOUT & FUNCTIONALITY
 ## ---------------------------------------------------------------------------------------------------------------------
@@ -481,7 +529,7 @@ highest_similarities_gradio_list = gr.List(type="array", interactive=False, visi
 nodeSelector = gr.Dropdown(label="Filter nodes", choices=["SLIDE_DECK", "SLIDE", "STORYPOINT"], value=["SLIDE_DECK", "SLIDE", "STORYPOINT"], multiselect=True, scale=1)
 filterBTN = gr.Button("Apply Filter")
 
-with gr.Blocks(title='Slide Inspo', theme='Soft', js=scripts, head = js_click).queue(default_concurrency_limit=1) as demo:
+with gr.Blocks(title='Slide Inspo', js=scripts, head = js_click, theme = gr.themes.Monochrome(), css= css).queue(default_concurrency_limit=1) as demo:
     
     highest_similarities_gradio_list.render()
     with gr.Row():
@@ -495,13 +543,13 @@ with gr.Blocks(title='Slide Inspo', theme='Soft', js=scripts, head = js_click).q
                                         label="How many storypoints?",
                                         scale =1)
             storyline_output_JSON = gr.JSON(visible=False)
-            storyline_output_storypoint_name_list = gr.List(visible=False, type="array", interactive=False, row_count = [1,"fixed"], label="Edit you Storypoints: 📝", scale=1)
+            
             btn = gr.Button("Build Storyline 🦄")
 
         with gr.Column(scale=1):
             gr.Markdown("# 2. Storyline: 🦄")
-                            
-            storyline_output_pretty = gr.Textbox(label="Your Storyline:", lines=13, scale=3, interactive=False)
+            storyline_output_storypoint_name_list = gr.List(visible=True, type="array", interactive=True, label="Adapt and add Storypoints, if needed: 📝", scale=1, wrap=True, col_count=[2, "fixed"], elem_id="SPList", headers=["#SP", "Description"])                
+            #storyline_output_pretty = gr.Textbox(label="Your Storyline:", lines=13, scale=3, interactive=False)
             submit_button = gr.Button("⚡ Find Slides ⚡", elem_id="visGraph")
             submit_button.click(fn= coordinate_simcalculation, inputs=[storyline_output_storypoint_name_list], outputs=[graphVisual, highest_similarities_gradio_list]).then(js = js_click)
 
@@ -509,11 +557,11 @@ with gr.Blocks(title='Slide Inspo', theme='Soft', js=scripts, head = js_click).q
 
             btn.click(slide_deck_storyline, 
                                     inputs = [storyline_prompt, nr_storypoints_to_build], 
-                                    outputs = [storyline_output_JSON, storyline_output_storypoint_name_list, storyline_output_pretty])
+                                    outputs = [storyline_output_JSON, storyline_output_storypoint_name_list])
                 
             storyline_prompt.submit(slide_deck_storyline, 
                                     inputs = [storyline_prompt, nr_storypoints_to_build], 
-                                    outputs = [storyline_output_JSON, storyline_output_storypoint_name_list, storyline_output_pretty])
+                                    outputs = [storyline_output_JSON, storyline_output_storypoint_name_list])
 
 
     with gr.Row():
