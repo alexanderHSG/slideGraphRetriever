@@ -529,7 +529,7 @@ highest_similarities_gradio_list = gr.List(type="array", interactive=False, visi
 nodeSelector = gr.Dropdown(label="Filter nodes", choices=["SLIDE_DECK", "SLIDE", "STORYPOINT"], value=["SLIDE_DECK", "SLIDE", "STORYPOINT"], multiselect=True, scale=1)
 filterBTN = gr.Button("Apply Filter")
 
-with gr.Blocks(title='Slide Inspo', js=scripts, head = js_click, theme = gr.themes.Monochrome(), css= css).queue(default_concurrency_limit=1) as demo:
+with gr.Blocks(title='Slide Inspo', js=scripts, head = js_click, theme = gr.themes.Monochrome()).queue(default_concurrency_limit=1) as demo:
     
     highest_similarities_gradio_list.render()
     with gr.Row():
