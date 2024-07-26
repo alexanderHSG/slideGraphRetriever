@@ -641,7 +641,7 @@ Choose 5 to 10 story points based on the topic's complexity. Fewer, detailed poi
             filterBTN.render()
             filterBTN.click(fn= construct_hmtl, inputs=[highest_similarities_gradio_list, nodeSelector], outputs=[graphVisual]).then(js = js_call_draw)
         with gr.Column(scale=2):
-            custom_filtering_output = gr.Textbox( lines=10, scale=3, interactive=True, label = "Describe what you would like to filter for?", placeholder = "For example: 'Show me all slides of the slide decks of the second story point.'", interactive=False)
+            custom_filtering_output = gr.Textbox( lines=10, scale=3, interactive=False, label = "Describe what you would like to filter for?", placeholder = "For example: 'Show me all slides of the slide decks of the second story point.'")
             customfilter_btn = gr.Button("Apply custom filter")
             customfilter_btn.click(custom_filtering, inputs=[custom_filtering_output, queryPlaceholder, responsePlaceholder], outputs=[graphVisual]).then(js = js_call_draw)
     with gr.Group():
