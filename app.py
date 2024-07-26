@@ -75,7 +75,7 @@ def slide_deck_storyline(storyline_prompt, nr_of_storypoints=5):
                         """
 
      response = openai.chat.completions.create(
-            model = "gpt-4o-mini", 
+            model = "gpt-4o", 
             response_format = {"type": "json_object"},
             messages = [
             {"role": "system", "content": system_prompt},
@@ -94,18 +94,53 @@ def slide_deck_storyline(storyline_prompt, nr_of_storypoints=5):
 
      return map, storypoint_name_nested
 
-#we need this function to turn the non iterable nested list that is gr.List into a simple list.
-def iterator_for_gr(nested_list, i):
-     #Initialize a variable to store the processing result
-     storypoint_names = []
+#this is a prompt that takes a filter prompt and formats an output in json to return a filter cypress query.
+def custom_filtering(filter_prompt, current_cypher_query, neo4j_response):
 
-     #since the gr.List is a List[List] (nested list, we need to unwrap the 0th element)
-     for item in nested_list[0]:
-         storypoint_names.append(item)
-         
 
-     # Return a string that combines all the processed results
-     return str(storypoint_names[i-1])
+     system_prompt = f"""You are an AI specifically trained to write accurate Neo4j Cypher queries.
+                    This is your only chance to impress me.
+
+                    In the Neo4j database, the nodes are defined as SLIDE_DECK, SLIDE, STORYPOINT, and AUTHOR connected by these relationships:
+                    (sd:SLIDE_DECK)-[:CONTAINS]->(s:SLIDE)
+                    (s:SLIDE)-[:ASSIGNED_TO]->(sp:STORYPOINT)
+                    (sp1:STORYPOINT)-[:FOLLOWS]->(sp2:STORYPOINT)
+                    (sd:SLIDE_DECK)-[:CREATED_BY]->(a:AUTHOR)
+
+                    You will receive a the current cypher query and its corresponding Neo4j response. Your task is to respond with a new Cypher query that filters based on the user's request.
+                    Do NOT forget to return relationships connecting the nodes if needed.
+
+                    Instructions:
+                    The current cypher query is: "{current_cypher_query}"
+                    The Neo4j response is: "{neo4j_response}"
+
+                    Ensure the correct STORYPOINT nodes in the order is adressed, as specified in the initial line of the current cypher query.
+                    For example, in the sequence ['113', '-6555727423036779192A_outlier', '5554388242771153481A_outlier', '25', '1431557444396440005A_outlier'], '-6555727423036779192A_outlier' is the second STORYPOINT.
+
+                    Respond with exactly a single JSON object containing the key "cypherquery" and the value of the requested query.
+                    Do not include any nicities, greetings or repeat the task. Keep the query concise and only answer in this format.
+                    """
+
+
+     response = openai.chat.completions.create(
+            model = "gpt-4o", 
+            response_format = {"type": "json_object"},
+            messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": filter_prompt}],
+            temperature=0
+            )
+     res = response.choices[0].message.content
+     res = json.loads(res)
+
+     html = construct_hmtl(query = res["cypherquery"])
+
+     print(res["cypherquery"])
+     
+     return html
+
+
+
 
 
 
@@ -179,18 +214,26 @@ def coordinate_simcalculation(storyline_output_storypoint_name_list):
     for new_id, existing_id, similarity in highest_similarities:
         print(f"Input STORYPOINT '{new_id}' is most similar to existing STORYPOINT '{existing_id}' with a similarity of {similarity:.2f}")
 
-    HTMLoutput = construct_hmtl(highest_similarities)
+    HTMLoutput, query = construct_hmtl(highest_similarities)
 
-    return HTMLoutput, highest_similarities
+    return HTMLoutput, highest_similarities, query
 
-def construct_hmtl(highest_similarities, nodes_to_show=["SLIDE_DECK", "SLIDE", "STORYPOINT"]):
+def get_neo4j_response(query):
+    with driver.session() as session:
+        result = session.run(query)
+        response = [record for record in result]
+    return response
 
-    storypoint_ids = [existing_id for _, existing_id, _ in highest_similarities]
-    print(storypoint_ids)
+def construct_hmtl(highest_similarities = None, nodes_to_show=["SLIDE_DECK", "SLIDE", "STORYPOINT"], query=None):
+
+    if query is None:
+        
+        storypoint_ids = [existing_id for _, existing_id, _ in highest_similarities]
+        print(storypoint_ids)
 
 
-    # Starting with the base of the query
-    query_parts = [
+        # Starting with the base of the query
+        query_parts = [
         f"WITH {storypoint_ids} AS ids",
         "MATCH (sp:STORYPOINT) WHERE sp.id IN ids",
         "WITH sp",
@@ -201,35 +244,36 @@ def construct_hmtl(highest_similarities, nodes_to_show=["SLIDE_DECK", "SLIDE", "
         "CALL apoc.create.vRelationship(sp_start, 'FOLLOWS', {}, sp_end) YIELD rel",
         "WITH sps, sp_start, rel, sp_end",
         "UNWIND sps AS sp"
-    ]
+        ]
 
     # Initialize the match and return parts of the query
-    match_parts = []
-    return_parts = []
+        match_parts = []
+        return_parts = []
 
-    # Include virtual relationship and its nodes conditionally
-    if "STORYPOINT" in nodes_to_show:
-        return_parts.extend(["sp_start", "rel", "sp_end", "sp"])
+        # Include virtual relationship and its nodes conditionally
+        if "STORYPOINT" in nodes_to_show:
+            return_parts.extend(["sp_start", "rel", "sp_end", "sp"])
     
     # Conditionally add SLIDE and SLIDE_DECK with their relationships
-    if "SLIDE" in nodes_to_show or "SLIDE_DECK" in nodes_to_show:
-        match_parts.append("(sp)<-[r1:ASSIGNED_TO]-(s:SLIDE)")
-        return_parts.extend(["s", "r1"])
-        if "SLIDE_DECK" in nodes_to_show:
-            match_parts.append("<-[r2:CONTAINS]-(sd:SLIDE_DECK)")
-            return_parts.extend(["sd", "r2"])
+        if "SLIDE" in nodes_to_show or "SLIDE_DECK" in nodes_to_show:
+            match_parts.append("(sp)<-[r1:ASSIGNED_TO]-(s:SLIDE)")
+            return_parts.extend(["s", "r1"])
+            if "SLIDE_DECK" in nodes_to_show:
+                match_parts.append("<-[r2:CONTAINS]-(sd:SLIDE_DECK)")
+                return_parts.extend(["sd", "r2"])
 
-    # Construct the final query
-    query = "\n".join(query_parts)
-    if match_parts:
-        query += "\nMATCH " + "".join(match_parts)
-    if return_parts:
-        query += "\nRETURN " + ", ".join(return_parts)
-    else:
-        query += "\nRETURN 'No nodes to show based on the selected types'"
+        # Construct the final query
+        query = "\n".join(query_parts)
+        if match_parts:
+            query += "\nMATCH " + "".join(match_parts)
+        if return_parts:
+            query += "\nRETURN " + ", ".join(return_parts)
+        else:
+            query += "\nRETURN 'No nodes to show based on the selected types'"
     
     
 
+    
     graphVisualHTML = f"""
 
 <head>
@@ -243,10 +287,10 @@ def construct_hmtl(highest_similarities, nodes_to_show=["SLIDE_DECK", "SLIDE", "
             margin: 0; /* Remove default margin */
         }}
         #viz {{
-            width: 1200px;
+            /*width: 1600px;*/
             height: 700px;
-            background-color: #f0f0f0; /* Lighter grey background for the viz div */
-            padding: 10px; /* Adds padding inside the div */
+            /*background-color: #f0f0f0;  Lighter grey background for the viz div */
+            padding: 5px; /* Adds padding inside the div */
         }}
         .heading {{
             font-size: 24px;
@@ -254,7 +298,7 @@ def construct_hmtl(highest_similarities, nodes_to_show=["SLIDE_DECK", "SLIDE", "
             margin-bottom: 20px;
         }}
         #queryCypher {{
-            opacity: 0;
+            display:none;
         }}
     </style>
 </head>
@@ -266,15 +310,10 @@ def construct_hmtl(highest_similarities, nodes_to_show=["SLIDE_DECK", "SLIDE", "
         <p id="queryCypher">{query}</p>
     </div>
     
-    <div class="custom-menu" style="display: none; position: absolute; z-index: 1000; background: white; border: 1px solid #ccc; padding: 5px; box-shadow: 2px 2px 5px #888;">
-        <ul>
-            <li onclick="alert('Action 1')">Action 1</li>
-            <li onclick="alert('Action 2')">Action 2</li>
-        </ul>
-    </div>
+
 </body>
     """
-    return graphVisualHTML
+    return graphVisualHTML, query
 
 scripts = """
 
@@ -325,7 +364,7 @@ async () => {
                         font: {
                             color: 'black',
                             size: 14, // Pixel size
-                            face: 'Helvetica' // Uniform font across all graph elements
+                            face: 'Quicksand' // Uniform font across all graph elements
                         }
                     }
                 }
@@ -347,7 +386,7 @@ async () => {
                         font: {
                             color: 'black',
                             size: 14, // Pixel size
-                            face: 'Helvetica' // Uniform font across all graph elements
+                            face: 'Quicksand' // Uniform font across all graph elements
                         }
                     }
                 }
@@ -365,7 +404,7 @@ async () => {
 							font: {
 								color: '#2c3e50', // Dark grey color for strong contrast against light background
 								size: 14, // Larger font size for enhanced readability
-								face: 'Helvetica' // Modern font for a clean appearance
+								face: 'Quicksand' // Modern font for a clean appearance
 							},
 							dashes: false, // Solid line to indicate a strong, permanent relationship
 						}
@@ -380,7 +419,7 @@ async () => {
 							font: {
 								color: '#2c3e50', // Dark grey to maintain visibility and consistency
 								size: 14,
-								face: 'Helvetica'
+								face: 'Quicksand'
 							},
 							arrows: {
 								to: { enabled: true, scaleFactor: 1.2 } // Prominent arrow for visual emphasis
@@ -397,7 +436,7 @@ async () => {
 							font: {
 								color: '#2c3e50', // Dark grey to ensure readability on light backgrounds
 								size: 14,
-								face: 'Helvetica'
+								face: 'Quicksand'
 							},
 							arrows: {
 								to: { enabled: true, scaleFactor: 1.5 } // Larger arrow to denote directionality
@@ -430,20 +469,20 @@ async () => {
         try {
             viz = new NeoVis.default(config);
             viz.render();
-            viz.registerOnEvent("completed", () => {
-                viz.network.on("oncontext", function (params) {
-                    params.event.preventDefault();
-                    const customMenu = document.querySelector('.custom-menu');
-                    
-                    if (customMenu) {
-                    console.log("Displaying custom menu.");
-                        const containerRect = document.getElementById('viz').getBoundingClientRect();
-                        customMenu.style.display = 'block';
-                        customMenu.style.top = `${params.event.pageY - containerRect.top + window.scrollY}px`;
-                        customMenu.style.left = `${params.event.pageX - containerRect.left + window.scrollX}px`;
-                    }
-                });
-            });
+            //viz.registerOnEvent("completed", () => {
+            //    viz.network.on("oncontext", function (params) {
+            //        params.event.preventDefault();
+            //        const customMenu = document.querySelector('.custom-menu');
+            //        
+            //        if (customMenu) {
+            //        console.log("Displaying custom menu.");
+            //            const containerRect = document.getElementById('viz').getBoundingClientRect();
+            //            customMenu.style.display = 'block';
+            //            customMenu.style.top = `${params.event.pageY - containerRect.top + window.scrollY}px`;
+            //            customMenu.style.left = `${params.event.pageX - containerRect.left + window.scrollX}px`;
+            //        }
+            //    });
+            //});
 
             
         } catch (error) {
@@ -465,7 +504,7 @@ async () => {
 
 
 
-js_click = """
+js_call_draw = """
 <script>
 
 // Function to handle the mutations
@@ -505,6 +544,7 @@ console.log("Observer is set to monitor changes in the document body.");
 </script>
 """
 
+# CSS for the Storypoint list
 css = """
 #SPList {
     font-family: 'Arial', sans-serif;
@@ -529,29 +569,49 @@ highest_similarities_gradio_list = gr.List(type="array", interactive=False, visi
 nodeSelector = gr.Dropdown(label="Filter nodes", choices=["SLIDE_DECK", "SLIDE", "STORYPOINT"], value=["SLIDE_DECK", "SLIDE", "STORYPOINT"], multiselect=True, scale=1)
 filterBTN = gr.Button("Apply Filter")
 
-with gr.Blocks(title='Slide Inspo', js=scripts, head = js_click, theme = gr.themes.Monochrome()).queue(default_concurrency_limit=1) as demo:
-    
+with gr.Blocks(title='Slide Inspo', js=scripts, head = js_call_draw, theme = gr.themes.Monochrome()).queue(default_concurrency_limit=1) as demo:
+
     highest_similarities_gradio_list.render()
     with gr.Row():
+        gr.Markdown("# NarrativeNet Weaver")
+    with gr.Row():    
+        queryPlaceholder = gr.Textbox(visible=False)
+        responsePlaceholder = gr.Textbox(visible=False)
         with gr.Column(scale=1):
-            gr.Markdown("# 1. Input: 🔍")
+            gr.Markdown("""## 1. Input: 🔍
+
+                        **Define Your Workshop Objective.**
+                        Choose a topic that is timely and fills a skill gap relevant to your consulting firm’s strategic goals. 
+                        Define learning goals that focus on acquiring skills applicable in real-world consulting scenarios. 
+                        Consider how mastering these skills can innovate and enhance your firm’s service offerings, aligning with emerging market needs and providing a competitive edge.
+                        """)
             storyline_prompt = gr.Textbox(placeholder = 'Give us a topic and we will provide a storyline for you! For example: "SCRUM in Software Development"', 
                                         label = 'Topic to build:',
                                         lines=5,
                                         scale = 3)
             nr_storypoints_to_build = gr.Number(value=5,
-                                        label="How many storypoints?",
+                                        label="How many story points?",
                                         scale =1)
             storyline_output_JSON = gr.JSON(visible=False)
             
             btn = gr.Button("Build Storyline 🦄")
 
         with gr.Column(scale=1):
-            gr.Markdown("# 2. Storyline: 🦄")
-            storyline_output_storypoint_name_list = gr.List(visible=True, type="array", interactive=True, label="Adapt and add Storypoints, if needed: 📝", scale=1, wrap=True, col_count=[2, "fixed"], elem_id="SPList", headers=["#SP", "Description"])                
+            gr.Markdown("""## 2. Storyline: 🦄
+
+**Content Requirements and Story Points.**
+Develop content that supports your workshop’s learning goals, using theories, case studies, and real-world applications.                  
+**Story Points Explained.**
+Story points are key milestones in your presentation that underline important learning outcomes. Adapt them to emphasize skills and insights crucial for your firm’s services.                
+**Evaluating Story Points.**
+Effective story points are clear, engaging, and directly tied to your objectives. They should advance understanding and skill acquisition.  
+**Optimal Number.**
+Choose 5 to 10 story points based on the topic's complexity. Fewer, detailed points suit in-depth topics, while more points work for broader overviews.
+                        """)
+            storyline_output_storypoint_name_list = gr.List(visible=True, type="array", interactive=True, label="Adapt and add Story points, if needed: 📝", scale=1, wrap=True, col_count=[2, "fixed"], elem_id="SPList", headers=["#SP", "Description"])                
             #storyline_output_pretty = gr.Textbox(label="Your Storyline:", lines=13, scale=3, interactive=False)
             submit_button = gr.Button("⚡ Find Slides ⚡", elem_id="visGraph")
-            submit_button.click(fn= coordinate_simcalculation, inputs=[storyline_output_storypoint_name_list], outputs=[graphVisual, highest_similarities_gradio_list]).then(js = js_click)
+            submit_button.click(fn= coordinate_simcalculation, inputs=[storyline_output_storypoint_name_list], outputs=[graphVisual, highest_similarities_gradio_list, queryPlaceholder]).then(js = js_call_draw).then(get_neo4j_response, inputs=[queryPlaceholder], outputs=[responsePlaceholder])
 
 
 
@@ -563,19 +623,33 @@ with gr.Blocks(title='Slide Inspo', js=scripts, head = js_click, theme = gr.them
                                     inputs = [storyline_prompt, nr_storypoints_to_build], 
                                     outputs = [storyline_output_JSON, storyline_output_storypoint_name_list])
 
+    gr.Markdown("""## 3. Visualize and Filter: 🔍
+
+                Utilize the graph database to align the retrieved data with the objectives and story points defined in Steps 1 and 2:  
+                **Filtering the Graph.**
+                Apply filters to better understand the retrieved slides and content that directly correspond to the established learning goals and story points.  
+                **Exploring the Graph.**
+                Explore relationships and connections within the graph to ensure comprehensive coverage and to identify potential enhancements for your narrative.  
+                **Refinements.**
+                Should gaps or misalignments be discovered during exploration, revisit Steps 1 and 2 to adjust the learning goals or story points. Then, reapply these refined criteria to filter and explore the graph again, ensuring the presentation content is optimally tailored and coherent.
+                """)
+
 
     with gr.Row():
-        with gr.Group():
-            with gr.Column(scale=1):
-                nodeSelector.render()
-            with gr.Column(scale=1):
-                filterBTN.render()
-                filterBTN.click(fn= construct_hmtl, inputs=[highest_similarities_gradio_list, nodeSelector], outputs=[graphVisual]).then(js = js_click)
-
-            with gr.Row():
-                graphVisual.render()
-
-
+        with gr.Column(scale=2):
+            nodeSelector.render()
+            filterBTN.render()
+            filterBTN.click(fn= construct_hmtl, inputs=[highest_similarities_gradio_list, nodeSelector], outputs=[graphVisual]).then(js = js_call_draw)
+        with gr.Column(scale=2):
+            custom_filtering_output = gr.Textbox( lines=10, scale=3, interactive=True, label = "Describe what you would like to filter for?", placeholder = "For example: 'Show me all slides of the slide decks of the second story point.'", interactive=False)
+            customfilter_btn = gr.Button("Apply custom filter")
+            customfilter_btn.click(custom_filtering, inputs=[custom_filtering_output, queryPlaceholder, responsePlaceholder], outputs=[graphVisual]).then(js = js_call_draw)
+    with gr.Group():
+        with gr.Row():
+            graphVisual.render()
+    #with gr.Row():
+        
+    
 
     
 
