@@ -261,7 +261,7 @@ def track_user_interaction(user_input, action):
     global user_id
     
     user_id = str(user_id)
-    connection = sqlite3.connect('user_interactions.db')
+    connection = sqlite3.connect('/data/user_interactions.db')
     cursor = connection.cursor()
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     user_input_str = str(user_input)
