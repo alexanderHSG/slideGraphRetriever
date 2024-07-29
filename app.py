@@ -62,7 +62,6 @@ def format_chat_prompt(message, chat_history, max_convo_length):
 
 #this is a simple prompt that takes a storyline prompt and formats an output in json to return a storyline of X slides.
 def slide_deck_storyline(storyline_prompt, nr_of_storypoints=5):
-    print("hi")
     nr_of_storypoints = str(nr_of_storypoints)
     system_prompt = f"""You are an AI particularly skilled at captivating storytelling for educational purposes.
                         You know how tell a compelling, structure and exhaustive narrative around any given academic topic.
