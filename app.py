@@ -62,9 +62,9 @@ def format_chat_prompt(message, chat_history, max_convo_length):
 
 #this is a simple prompt that takes a storyline prompt and formats an output in json to return a storyline of X slides.
 def slide_deck_storyline(storyline_prompt, nr_of_storypoints=5):
-     print("hi")
-     nr_of_storypoints = str(nr_of_storypoints)
-     system_prompt = f"""You are an AI particularly skilled at captivating storytelling for educational purposes.
+    print("hi")
+    nr_of_storypoints = str(nr_of_storypoints)
+    system_prompt = f"""You are an AI particularly skilled at captivating storytelling for educational purposes.
                         You know how tell a compelling, structure and exhaustive narrative around any given academic topic.
                         What you are particularly good at, is taking any given input and building a storyline in the delivered as
                         {nr_of_storypoints} storypoints and nothing else. This is your only chance to impress me.
@@ -80,7 +80,7 @@ def slide_deck_storyline(storyline_prompt, nr_of_storypoints=5):
                         The elements of the list should be storypoints, highlighting what the point the sliStorypoint is trying to make is.
                         """
 
-     response = openai.chat.completions.create(
+    response = openai.chat.completions.create(
             model = "gpt-4o", 
             response_format = {"type": "json_object"},
             messages = [
@@ -88,17 +88,17 @@ def slide_deck_storyline(storyline_prompt, nr_of_storypoints=5):
             {"role": "user", "content": storyline_prompt}],
             temperature=0
             )
-     res = response.choices[0].message.content
-     map = json.loads(res)
+    res = response.choices[0].message.content
+    map = json.loads(res)
      #pretty_list = "\n".join([f"⚡ {key}: {value}" for key, value in map.items()])
-     storypoint_name_list = [map[key] for key in map]
-     storypoint_name_nested = [storypoint_name_list]
-     storypoint_name_nested = list(zip(*storypoint_name_nested))
+    storypoint_name_list = [map[key] for key in map]
+    storypoint_name_nested = [storypoint_name_list]
+    storypoint_name_nested = list(zip(*storypoint_name_nested))
      #add one column to the list with the name of the storypoint
 
-     storypoint_name_nested = [[f"SP {i}", item] for i, item in enumerate(storypoint_name_nested, 1)]
+    storypoint_name_nested = [[f"SP {i}", item] for i, item in enumerate(storypoint_name_nested, 1)]
 
-     return map, storypoint_name_nested
+    return map, storypoint_name_nested
 
 
 #this is a prompt that takes a filter prompt and formats an output in json to return a filter cypress query.
@@ -446,10 +446,7 @@ async () => {
             SLIDE_DECK: {
                 label: "title",
     
-      title: function(node) {
-        // This function returns HTML content that will be shown as tooltip
-        return `<b>Name:</b> ${node.properties.title}<br/>;
-      }
+
                 [NeoVis.NEOVIS_ADVANCED_CONFIG]: {
                     static: {
                         caption: "title",
@@ -709,9 +706,9 @@ Outcome: Fellow consultant will develop a comprehensive understanding of AI's po
             btn_buildstoryline.click(slide_deck_storyline, 
                                     inputs = [storyline_prompt, nr_storypoints_to_build], 
                                     outputs = [storyline_output_JSON, storyline_output_storypoint_name_list]
-                                    ).then(track_user_interaction, inputs=[storyline_prompt, gr.Textbox("build storyline prompt", visible=False)]
-                                    ).then(track_user_interaction, inputs=[storyline_output_storypoint_name_list, gr.Textbox("build storyline gpt output", visible=False)]
-                                    ).then(track_user_interaction, inputs=[nr_storypoints_to_build, gr.Textbox("build storyline number of points", visible=False)])
+                                    )#.then(track_user_interaction, inputs=[storyline_prompt, gr.Textbox("build storyline prompt", visible=False)]
+                                    #).then(track_user_interaction, inputs=[storyline_output_storypoint_name_list, gr.Textbox("build storyline gpt output", visible=False)]
+                                    #).then(track_user_interaction, inputs=[nr_storypoints_to_build, gr.Textbox("build storyline number of points", visible=False)])
                 
             storyline_prompt.submit(slide_deck_storyline, 
                                     inputs = [storyline_prompt, nr_storypoints_to_build], 
@@ -740,7 +737,7 @@ Outcome: Fellow consultant will develop a comprehensive understanding of AI's po
                                 ).then(js = js_call_draw)
             
         with gr.Column(scale=2):
-            custom_filtering_output = gr.Textbox(lines=2, scale=3, interactive=True, label = "Describe what you would like to filter for?", placeholder = """For example: """)
+            custom_filtering_output = gr.Textbox(lines=2, scale=3, interactive=True, label = "Describe what you would like to filter for?", placeholder = """For example: 'Filter to only show slides and their respective slide decks that are assigned to the third STORYPOINT'""")
             customfilter_btn = gr.Button("Apply custom filter")
             customfilter_btn.click(custom_filtering, inputs=[custom_filtering_output, queryPlaceholder, responsePlaceholder], outputs=[graphVisual, customFilterQuery]
                                 ).then(track_user_interaction, inputs=[custom_filtering_output, gr.Textbox("customFilterPrompt", visible=False)]
