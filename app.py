@@ -7,6 +7,10 @@ import pandas as pd
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 from dotenv import load_dotenv
+import sqlite3
+from datetime import datetime
+import re
+
 
 load_dotenv()
 
@@ -21,6 +25,7 @@ driver = GraphDatabase.driver(neo4j_url, auth=AUTH)
 
 
 
+user_id = None
 
 
 
@@ -57,6 +62,7 @@ def format_chat_prompt(message, chat_history, max_convo_length):
 
 #this is a simple prompt that takes a storyline prompt and formats an output in json to return a storyline of X slides.
 def slide_deck_storyline(storyline_prompt, nr_of_storypoints=5):
+     print("hi")
      nr_of_storypoints = str(nr_of_storypoints)
      system_prompt = f"""You are an AI particularly skilled at captivating storytelling for educational purposes.
                         You know how tell a compelling, structure and exhaustive narrative around any given academic topic.
@@ -93,6 +99,7 @@ def slide_deck_storyline(storyline_prompt, nr_of_storypoints=5):
      storypoint_name_nested = [[f"SP {i}", item] for i, item in enumerate(storypoint_name_nested, 1)]
 
      return map, storypoint_name_nested
+
 
 #this is a prompt that takes a filter prompt and formats an output in json to return a filter cypress query.
 def custom_filtering(filter_prompt, current_cypher_query, neo4j_response):
@@ -132,12 +139,45 @@ def custom_filtering(filter_prompt, current_cypher_query, neo4j_response):
             )
      res = response.choices[0].message.content
      res = json.loads(res)
+     cypher_query = res["cypherquery"]
 
-     html = construct_hmtl(query = res["cypherquery"])
+    # Enhanced pattern to catch variations including potential spaces, newlines, and mixed cases
+     pattern = r"(?i)\b(CREATE|SET|DELETE|REMOVE|MERGE)\s*(\(|\[|\{)?"
+    
+    # Split the query into individual statements based on semicolons
+     statements = cypher_query.split(';')
+    
+    # Further process each statement to check for conditional or nested writes
+     def is_write_statement(statement):
+        # Check if the statement includes write operations
+        if re.search(pattern, statement):
+            return True
+        # Check for potentially hidden write operations within sub-queries or function calls
+        nested_patterns = [
+            r"FOREACH\s*\(([^)]+)\)",  # Looking inside FOREACH loops
+            r"CASE\s+WHEN\s+[^:]+:\s+[^:]+ELSE\s+[^:]+END",  # Checking CASE statements
+            r"CALL\s+[^()]+(\(.*\))?YIELD\s+[^()]+",  # Checking CALL statements
+        ]
+        for nested_pattern in nested_patterns:
+            if re.search(nested_pattern, statement, re.IGNORECASE | re.DOTALL):
+                # Recursively check inside the nested statement
+                match = re.search(nested_pattern, statement, re.IGNORECASE | re.DOTALL)
+                if match and is_write_statement(match.group(1)):
+                    return True
+        return False
+
+    # Filter statements that contain write operations
+     filtered_statements = [stmt for stmt in statements if not is_write_statement(stmt)]
+    
+    # Join the filtered statements back into a single query string
+     filtered_query = '; '.join(filtered_statements)
+
+     html = construct_hmtl(query = filtered_query)
 
      print(res["cypherquery"])
+     print(filtered_query)
      
-     return html
+     return html, filtered_query
 
 
 
@@ -217,6 +257,40 @@ def coordinate_simcalculation(storyline_output_storypoint_name_list):
     HTMLoutput, query = construct_hmtl(highest_similarities)
 
     return HTMLoutput, highest_similarities, query
+
+def track_user_interaction(user_input, action):
+    global user_id
+    
+    user_id = str(user_id)
+    connection = sqlite3.connect('user_interactions.db')
+    cursor = connection.cursor()
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    user_input_str = str(user_input)
+    action_str = str(action)
+        # Escape single quotes by replacing them with two single quotes
+    user_input_str = user_input_str.replace("'", "''")
+    action_str = action_str.replace("'", "''")
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS user_interactions (
+        user_input TEXT NOT NULL,
+        action TEXT NOT NULL,
+        timestamp TEXT NOT NULL,
+        user_id TEXT NOT NULL
+    );
+    ''')    
+    insert_query = "INSERT INTO user_interactions (user_input, action, timestamp, user_id) VALUES ('" + user_input_str + "', '" + action_str + "', '" + timestamp + "', '" + user_id + "')"
+
+    cursor.execute(insert_query)
+    connection.commit()
+    connection.close()
+
+def profile_user(username, password):
+    global user_id
+    user_id = username
+    track_user_interaction("", "login")
+    return True
+
+
 
 def get_neo4j_response(query):
     with driver.session() as session:
@@ -371,6 +445,11 @@ async () => {
             },
             SLIDE_DECK: {
                 label: "title",
+    
+      title: function(node) {
+        // This function returns HTML content that will be shown as tooltip
+        return `<b>Name:</b> ${node.properties.title}<br/>;
+      }
                 [NeoVis.NEOVIS_ADVANCED_CONFIG]: {
                     static: {
                         caption: "title",
@@ -566,7 +645,7 @@ css = """
 ## ---------------------------------------------------------------------------------------------------------------------
 graphVisual = gr.HTML()
 highest_similarities_gradio_list = gr.List(type="array", interactive=False, visible=False)
-nodeSelector = gr.Dropdown(label="Filter nodes", choices=["SLIDE_DECK", "SLIDE", "STORYPOINT"], value=["SLIDE_DECK", "SLIDE", "STORYPOINT"], multiselect=True, scale=1)
+nodeSelector = gr.Dropdown(scale = 3, label="Filter nodes", choices=["SLIDE_DECK", "SLIDE", "STORYPOINT"], value=["SLIDE_DECK", "SLIDE", "STORYPOINT"], multiselect=True)
 filterBTN = gr.Button("Apply Filter")
 
 with gr.Blocks(title='Slide Inspo', js=scripts, head = js_call_draw, theme = gr.themes.Monochrome()).queue(default_concurrency_limit=1) as demo:
@@ -577,61 +656,79 @@ with gr.Blocks(title='Slide Inspo', js=scripts, head = js_call_draw, theme = gr.
     with gr.Row():    
         queryPlaceholder = gr.Textbox(visible=False)
         responsePlaceholder = gr.Textbox(visible=False)
+        user_id = gr.Textbox(visible=False)
+        customFilterQuery = gr.Textbox(visible=False)
         with gr.Column(scale=1):
             gr.Markdown("""## 1. Input: 🔍
 
                         **Define Your Workshop Objective.**
                         Choose a topic that is timely and fills a skill gap relevant to your consulting firm’s strategic goals. 
                         Define learning goals that focus on acquiring skills applicable in real-world consulting scenarios. 
-                        Consider how mastering these skills can innovate and enhance your firm’s service offerings, aligning with emerging market needs and providing a competitive edge.
+                        Consider how mastering these skills can innovate and enhance your firm’s service offerings, aligning with emerging market needs and providing a competitive edge.  
+                        *Our AI takes care to draft story points based on your input.*  
+                        **What are Story Points?**
+                        Story points are key milestones in your presentation that underline important learning outcomes. You can adapt them in the next step to cover skills and insights crucial for your firm’s services.
                         """)
-            storyline_prompt = gr.Textbox(placeholder = 'Give us a topic and we will provide a storyline for you! For example: "SCRUM in Software Development"', 
+            storyline_prompt = gr.Textbox(placeholder = """Give us a topic and we will provide a storyline for you! For example: 
+                                          
+Topic: AI enhancements for decision-making and process automation across multiple sectors such as finance, healthcare, and retail.
+
+Goals: Equip participants with the ability to apply AI techniques practically to solve industry-specific challenges.
+
+Implementation: Explore and integrate AI-driven solutions tailored to each sector, enhancing the firm’s service offerings.
+
+Outcome: Fellow consultant will develop a comprehensive understanding of AI's potential and capabilities. This knowledge will enable consultants to effectively identify and propose AI-driven solutions.""", 
                                         label = 'Topic to build:',
                                         lines=5,
                                         scale = 3)
-            nr_storypoints_to_build = gr.Number(value=5,
+            nr_storypoints_to_build = gr.Number(value=3,
                                         label="How many story points?",
                                         scale =1)
             storyline_output_JSON = gr.JSON(visible=False)
             
-            btn = gr.Button("Build Storyline 🦄")
+            btn_buildstoryline = gr.Button("Build Storyline 🦄")
 
         with gr.Column(scale=1):
             gr.Markdown("""## 2. Storyline: 🦄
 
-**Content Requirements and Story Points.**
-Develop content that supports your workshop’s learning goals, using theories, case studies, and real-world applications.                  
-**Story Points Explained.**
-Story points are key milestones in your presentation that underline important learning outcomes. Adapt them to emphasize skills and insights crucial for your firm’s services.                
-**Evaluating Story Points.**
-Effective story points are clear, engaging, and directly tied to your objectives. They should advance understanding and skill acquisition.  
-**Optimal Number.**
-Choose 5 to 10 story points based on the topic's complexity. Fewer, detailed points suit in-depth topics, while more points work for broader overviews.
+                **Content Requirements and Story Points.**
+                Develop content that supports your workshop’s learning goals, using theories, case studies, and real-world applications.                             
+                **Evaluating Story Points.**
+                Effective story points are clear, engaging, and directly tied to your objectives. They should advance understanding and skill acquisition.  
                         """)
-            storyline_output_storypoint_name_list = gr.List(visible=True, type="array", interactive=True, label="Adapt and add Story points, if needed: 📝", scale=1, wrap=True, col_count=[2, "fixed"], elem_id="SPList", headers=["#SP", "Description"])                
+            storyline_output_storypoint_name_list = gr.List(visible=True, type="array", interactive=True, label="Adapt and add Story points, if needed: 📝", 
+                                                            scale=1, wrap=True, col_count=[2, "fixed"], elem_id="SPList", headers=["#SP", "Description"])                
             #storyline_output_pretty = gr.Textbox(label="Your Storyline:", lines=13, scale=3, interactive=False)
             submit_button = gr.Button("⚡ Find Slides ⚡", elem_id="visGraph")
-            submit_button.click(fn= coordinate_simcalculation, inputs=[storyline_output_storypoint_name_list], outputs=[graphVisual, highest_similarities_gradio_list, queryPlaceholder]).then(js = js_call_draw).then(get_neo4j_response, inputs=[queryPlaceholder], outputs=[responsePlaceholder])
+            submit_button.click(fn= coordinate_simcalculation, inputs=[storyline_output_storypoint_name_list], outputs=[graphVisual, highest_similarities_gradio_list, queryPlaceholder]
+                                ).then(track_user_interaction, inputs=[storyline_output_storypoint_name_list, gr.Textbox("find slides", visible=False)]
+                                ).then(js = js_call_draw).then(get_neo4j_response, inputs=[queryPlaceholder], outputs=[responsePlaceholder])
 
 
 
-            btn.click(slide_deck_storyline, 
+            btn_buildstoryline.click(slide_deck_storyline, 
                                     inputs = [storyline_prompt, nr_storypoints_to_build], 
-                                    outputs = [storyline_output_JSON, storyline_output_storypoint_name_list])
+                                    outputs = [storyline_output_JSON, storyline_output_storypoint_name_list]
+                                    ).then(track_user_interaction, inputs=[storyline_prompt, gr.Textbox("build storyline prompt", visible=False)]
+                                    ).then(track_user_interaction, inputs=[storyline_output_storypoint_name_list, gr.Textbox("build storyline gpt output", visible=False)]
+                                    ).then(track_user_interaction, inputs=[nr_storypoints_to_build, gr.Textbox("build storyline number of points", visible=False)])
                 
             storyline_prompt.submit(slide_deck_storyline, 
                                     inputs = [storyline_prompt, nr_storypoints_to_build], 
-                                    outputs = [storyline_output_JSON, storyline_output_storypoint_name_list])
+                                    outputs = [storyline_output_JSON, storyline_output_storypoint_name_list]
+                                    ).then(track_user_interaction, inputs=[storyline_prompt, gr.Textbox("build storyline prompt", visible=False)]
+                                    ).then(track_user_interaction, inputs=[storyline_output_storypoint_name_list, gr.Textbox("build storyline gpt output", visible=False)]
+                                    ).then(track_user_interaction, inputs=[nr_storypoints_to_build, gr.Textbox("build storyline number of points", visible=False)])
 
     gr.Markdown("""## 3. Visualize and Filter: 🔍
 
-                Utilize the graph database to align the retrieved data with the objectives and story points defined in Steps 1 and 2:  
-                **Filtering the Graph.**
+                Utilize the visualization to align the retrieved slides and storypoints with the objectives and story points defined in Steps 1 and 2:  
+                **Filtering the Visualization.**
                 Apply filters to better understand the retrieved slides and content that directly correspond to the established learning goals and story points.  
                 **Exploring the Graph.**
-                Explore relationships and connections within the graph to ensure comprehensive coverage and to identify potential enhancements for your narrative.  
+                Explore relationships within the slide decks, slides, and story points to ensure comprehensive coverage and to identify potential inspiration for your narrative.  
                 **Refinements.**
-                Should gaps or misalignments be discovered during exploration, revisit Steps 1 and 2 to adjust the learning goals or story points. Then, reapply these refined criteria to filter and explore the graph again, ensuring the presentation content is optimally tailored and coherent.
+                Should gaps or misalignments be discovered during exploration, revisit Steps 1 and 2 to adjust the learning goals or story points. Then, reapply these refined criteria to filter and explore the visualization again, ensuring the presentation content is tailored and coherent.
                 """)
 
 
@@ -639,11 +736,16 @@ Choose 5 to 10 story points based on the topic's complexity. Fewer, detailed poi
         with gr.Column(scale=2):
             nodeSelector.render()
             filterBTN.render()
-            filterBTN.click(fn= construct_hmtl, inputs=[highest_similarities_gradio_list, nodeSelector], outputs=[graphVisual]).then(js = js_call_draw)
+            filterBTN.click(fn= construct_hmtl, inputs=[highest_similarities_gradio_list, nodeSelector], outputs=[graphVisual]).then(track_user_interaction, inputs=[nodeSelector, gr.Textbox("filterDropdown", visible=False)]
+                                ).then(js = js_call_draw)
+            
         with gr.Column(scale=2):
-            custom_filtering_output = gr.Textbox( lines=10, scale=3, interactive=False, label = "Describe what you would like to filter for?", placeholder = "For example: 'Show me all slides of the slide decks of the second story point.'")
+            custom_filtering_output = gr.Textbox(lines=2, scale=3, interactive=True, label = "Describe what you would like to filter for?", placeholder = """For example: """)
             customfilter_btn = gr.Button("Apply custom filter")
-            customfilter_btn.click(custom_filtering, inputs=[custom_filtering_output, queryPlaceholder, responsePlaceholder], outputs=[graphVisual]).then(js = js_call_draw)
+            customfilter_btn.click(custom_filtering, inputs=[custom_filtering_output, queryPlaceholder, responsePlaceholder], outputs=[graphVisual, customFilterQuery]
+                                ).then(track_user_interaction, inputs=[custom_filtering_output, gr.Textbox("customFilterPrompt", visible=False)]
+                                ).then(track_user_interaction, inputs=[customFilterQuery, gr.Textbox("customFilterQuery", visible=False)]).then(js = js_call_draw)
+            
     with gr.Group():
         with gr.Row():
             graphVisual.render()
@@ -654,4 +756,4 @@ Choose 5 to 10 story points based on the topic's complexity. Fewer, detailed poi
     
 
 gr.close_all()
-demo.launch()
+demo.launch(show_api=False, auth_message = "Hello there! Please log in to access the NarrativeNet Weaver using your Prolific ID as username. The password can be blank.", auth=profile_user)
