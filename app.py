@@ -12,6 +12,7 @@ from datetime import datetime
 import re
 
 
+
 load_dotenv()
 
 
@@ -261,7 +262,7 @@ def track_user_interaction(user_input, action):
     global user_id
     
     user_id = str(user_id)
-    connection = sqlite3.connect('/data/user_interactions.db')
+    connection = sqlite3.connect('./data/user_interactions.db')
     cursor = connection.cursor()
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     user_input_str = str(user_input)
@@ -752,4 +753,4 @@ Outcome: Fellow consultant will develop a comprehensive understanding of AI's po
     
 
 gr.close_all()
-demo.launch(show_api=False, auth_message = "Hello there! Please log in to access the NarrativeNet Weaver using your Prolific ID as username. The password can be blank.", auth=profile_user)
+demo.launch(show_api=False, auth_message = "Hello there! Please log in to access the NarrativeNet Weaver using your Prolific ID as username. The password is 'graphs24'.", auth=profile_user)
