@@ -313,7 +313,11 @@ def profile_user(username, password):
     global user_id
     user_id = username
     track_user_interaction("", "login")
-    return True
+    if password == os.getenv("APP_PASSWORD"):
+        return True
+    else:
+        return False
+
 
 
 
@@ -780,4 +784,4 @@ Outcome: Fellow consultant will develop a comprehensive understanding of AI's po
     
 
 gr.close_all()
-demo.launch(show_api=False, auth_message = "Hello there! Please log in to access the NarrativeNet Weaver using your Prolific ID as username. The password is 'graphs24'.", auth=profile_user)
+demo.launch(show_api=False, auth_message = "Hello there! Please log in to access the NarrativeNet Weaver using your Prolific ID as username. Use the password supplied in Qualtrics.", auth=profile_user)
