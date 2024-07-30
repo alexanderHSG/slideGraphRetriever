@@ -7,7 +7,6 @@ import pandas as pd
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 from dotenv import load_dotenv
-import sqlite3
 from datetime import datetime
 import re
 import mysql.connector
@@ -284,25 +283,31 @@ def track_user_interaction(user_input, action):
     cursor = connection.cursor()
 
 
+    # Create table if it doesn't exist
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS user_interactions (
+    user_input LONGTEXT NOT NULL,
+    action TEXT NOT NULL,
+    timestamp TEXT NOT NULL,
+    user_id TEXT NOT NULL
+);
+''')
+    # Prepare data
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     user_input_str = str(user_input)
     action_str = str(action)
-        # Escape single quotes by replacing them with two single quotes
-    user_input_str = user_input_str.replace("'", "''")
-    action_str = action_str.replace("'", "''")
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS user_interactions (
-        user_input TEXT NOT NULL,
-        action TEXT NOT NULL,
-        timestamp TEXT NOT NULL,
-        user_id TEXT NOT NULL
-    );
-    ''')    
-    insert_query = "INSERT INTO user_interactions (user_input, action, timestamp, user_id) VALUES ('" + user_input_str + "', '" + action_str + "', '" + timestamp + "', '" + user_id + "')"
 
-    cursor.execute(insert_query)
+# Use a parameterized query to insert data
+    insert_query = """
+INSERT INTO user_interactions (user_input, action, timestamp, user_id)
+VALUES (%s, %s, %s, %s)
+"""
+    cursor.execute(insert_query, (user_input_str, action_str, timestamp, user_id))
+    # Commit changes and close connection
     connection.commit()
     connection.close()
+
+
 
 def profile_user(username, password):
     global user_id
@@ -718,24 +723,26 @@ Outcome: Fellow consultant will develop a comprehensive understanding of AI's po
             #storyline_output_pretty = gr.Textbox(label="Your Storyline:", lines=13, scale=3, interactive=False)
             submit_button = gr.Button("⚡ Find Slides ⚡", elem_id="visGraph")
             submit_button.click(fn= coordinate_simcalculation, inputs=[storyline_output_storypoint_name_list], outputs=[graphVisual, highest_similarities_gradio_list, queryPlaceholder]
-                                ).then(track_user_interaction, inputs=[storyline_output_storypoint_name_list, gr.Textbox("find slides", visible=False)]
-                                ).then(js = js_call_draw).then(get_neo4j_response, inputs=[queryPlaceholder], outputs=[responsePlaceholder])
+                                ).then(track_user_interaction, inputs=[storyline_output_storypoint_name_list, gr.Textbox("findslidesStorypoints", visible=False)]
+                                ).then(get_neo4j_response, inputs=[queryPlaceholder], outputs=[responsePlaceholder]
+                                ).then(track_user_interaction, inputs=[queryPlaceholder, gr.Textbox("findslidesQuery", visible=False)]
+                                ).then(track_user_interaction, inputs=[responsePlaceholder, gr.Textbox("findslidesNeo4jResponse", visible=False)]).then(js = js_call_draw)
 
 
 
             btn_buildstoryline.click(slide_deck_storyline, 
                                     inputs = [storyline_prompt, nr_storypoints_to_build], 
                                     outputs = [storyline_output_JSON, storyline_output_storypoint_name_list]
-                                    )#.then(track_user_interaction, inputs=[storyline_prompt, gr.Textbox("build storyline prompt", visible=False)]
-                                    #).then(track_user_interaction, inputs=[storyline_output_storypoint_name_list, gr.Textbox("build storyline gpt output", visible=False)]
-                                    #).then(track_user_interaction, inputs=[nr_storypoints_to_build, gr.Textbox("build storyline number of points", visible=False)])
+                                    ).then(track_user_interaction, inputs=[storyline_prompt, gr.Textbox("buildstorylinePrompt", visible=False)]
+                                    ).then(track_user_interaction, inputs=[storyline_output_storypoint_name_list, gr.Textbox("buildstorylineGPTOutput", visible=False)]
+                                    ).then(track_user_interaction, inputs=[nr_storypoints_to_build, gr.Textbox("buildstorylineNumberOfPoints", visible=False)])
                 
             storyline_prompt.submit(slide_deck_storyline, 
                                     inputs = [storyline_prompt, nr_storypoints_to_build], 
                                     outputs = [storyline_output_JSON, storyline_output_storypoint_name_list]
-                                    ).then(track_user_interaction, inputs=[storyline_prompt, gr.Textbox("build storyline prompt", visible=False)]
-                                    ).then(track_user_interaction, inputs=[storyline_output_storypoint_name_list, gr.Textbox("build storyline gpt output", visible=False)]
-                                    ).then(track_user_interaction, inputs=[nr_storypoints_to_build, gr.Textbox("build storyline number of points", visible=False)])
+                                    ).then(track_user_interaction, inputs=[storyline_prompt, gr.Textbox("buildstorylinePrompt", visible=False)]
+                                    ).then(track_user_interaction, inputs=[storyline_output_storypoint_name_list, gr.Textbox("buildstorylineGPTOutput", visible=False)]
+                                    ).then(track_user_interaction, inputs=[nr_storypoints_to_build, gr.Textbox("buildstorylineNumberOfPoints", visible=False)])
 
     gr.Markdown("""## 3. Visualize and Filter: 🔍
 
