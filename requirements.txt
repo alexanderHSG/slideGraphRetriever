@@ -1,3 +1,4 @@
 openai
 neo4j
 scikit-learn
+mysql-connector-python

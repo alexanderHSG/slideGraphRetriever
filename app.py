@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 import sqlite3
 from datetime import datetime
 import re
+import mysql.connector
 
 
 
@@ -23,6 +24,7 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 neo4j_url = "neo4j+s://" + str(os.getenv("NEO4J_URL"))
 AUTH = (os.getenv("NEO4J_USERNAME"), os.getenv("NEO4J_PASSWORD"))
 driver = GraphDatabase.driver(neo4j_url, auth=AUTH)
+
 
 
 
@@ -261,9 +263,27 @@ def coordinate_simcalculation(storyline_output_storypoint_name_list):
 def track_user_interaction(user_input, action):
     global user_id
     
+    
     user_id = str(user_id)
-    connection = sqlite3.connect('./data/user_interactions.db')
+    
+
+    # Construct connection string
+    from mysql.connector import errorcode
+
+    try:
+        connection = mysql.connector.connect(user=os.getenv("MYSQLUSER"), password= os.getenv("MYSQLPASSWORD"), host=os.getenv("DBHOST"), port=3306, database="user_interact")
+        print("Connection established")
+    except mysql.connector.Error as err:
+        if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
+            print("Something is wrong with the user name or password")
+        elif err.errno == errorcode.ER_BAD_DB_ERROR:
+            print("Database does not exist")
+        else:
+            print(err)
+    
     cursor = connection.cursor()
+
+
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     user_input_str = str(user_input)
     action_str = str(action)
