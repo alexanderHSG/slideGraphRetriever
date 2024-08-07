@@ -78,7 +78,7 @@ def slide_deck_storyline(storyline_prompt, nr_of_storypoints=5):
                         Never make more than {nr_of_storypoints} storypoints. This is important!
                         Just give me the list. Keep the list concise and only answer with the list in this format.
                         Name every key a storypoint (Storypoint 1, Storypoint 2 ... Storypoint N).
-                        The elements of the list should be storypoints, highlighting what the point the sliStorypoint is trying to make is.
+                        The elements of the list should be storypoints, highlighting the points the slides should make.
                         """
 
     response = openai.chat.completions.create(
@@ -469,6 +469,7 @@ async () => {
                             size: 14, // Pixel size
                             face: 'Quicksand' // Uniform font across all graph elements
                         }
+                        title: (node) => `Description: ${node.properties.description}`,
                     }
                 }
             },
