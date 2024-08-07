@@ -701,7 +701,6 @@ with gr.Blocks(title='Slide Inspo', js=scripts, head = js_call_draw, theme = gr.
                         *Our AI takes care to draft story points based on your input.*  
                         **What are Story Points?**
                         Story points are key milestones in your presentation that underline important learning outcomes. You can adapt them in the next step to cover skills and insights crucial for your firm’s services.
-                        
                         """)
             storyline_prompt = gr.Textbox(placeholder = """Give us a topic and we will provide a storyline for you! For example: 
                                           
