@@ -11,8 +11,8 @@ import re
 import mysql.connector
 
 
-#from dotenv import load_dotenv
-#load_dotenv()
+from dotenv import load_dotenv
+load_dotenv()
 
 
 
@@ -128,7 +128,7 @@ def custom_filtering(filter_prompt, current_cypher_query, neo4j_response):
                     Do not include any nicities, greetings or repeat the task. Keep the query concise and only answer in this format.
                     """
 
-
+     print("system_prompt\n", system_prompt)
      response = openai.chat.completions.create(
             model = "gpt-4o", 
             response_format = {"type": "json_object"},
@@ -323,7 +323,34 @@ def profile_user(username, password):
 def get_neo4j_response(query):
     with driver.session() as session:
         result = session.run(query)
-        response = [record for record in result]
+        response = []
+        for record in result:
+            clean_record = {}
+            for key, element in record.items():
+                if hasattr(element, 'properties'):  # Check if element has 'properties' attribute
+                    # Filter out unwanted properties and handle both Node and Relationship objects
+                    filtered_properties = {k: v for k, v in element.properties.items() if k not in ['textual_content', 'embedding']}
+                    clean_record[key] = filtered_properties
+                elif hasattr(element, '__iter__') and not isinstance(element, str):  # Check for iterable elements except strings
+                    # Handle lists or other iterable, non-string elements
+                    iterable_clean = []
+                    for item in element:
+                        if hasattr(item, 'properties'):
+                            item_properties = {k: v for k, v in item.properties.items() if k not in ['textual_content', 'embedding']}
+                            iterable_clean.append(item_properties)
+                        else:
+                            iterable_clean.append(item)
+                    clean_record[key] = iterable_clean
+                else:
+                    # For other data types that are neither nodes nor relationships
+                    clean_record[key] = element
+            response.append(clean_record)
+        
+    
+    #save to txt file
+    with open("neo4j_response.txt", "w") as f:
+        f.write(str(response))
+
     return response
 
 def construct_hmtl(highest_similarities = None, nodes_to_show=["SLIDE_DECK", "SLIDE", "STORYPOINT"], query=None):
