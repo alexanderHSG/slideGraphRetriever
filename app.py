@@ -13,7 +13,7 @@ import mysql.connector
 
 
 
-load_dotenv()
+#load_dotenv()
 
 
 
