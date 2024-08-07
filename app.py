@@ -704,13 +704,11 @@ with gr.Blocks(title='Slide Inspo', js=scripts, head = js_call_draw, theme = gr.
                         """)
             storyline_prompt = gr.Textbox(placeholder = """Give us a topic and we will provide a storyline for you! For example: 
                                           
-Topic: AI enhancements for decision-making and process automation across multiple sectors such as finance, healthcare, and retail.
+Topic: AI for supporting decision-making and automation across sectors such as finance, healthcare, and retail.
 
-Goals: Equip participants with the ability to apply AI techniques practically to solve industry-specific challenges.
+Goals: Equip participants with the ability to apply AI techniques to solve industry-specific challenges. AI-driven solutions tailored to each sector, should later enhance the firm’s service offerings.
 
-Implementation: Explore and integrate AI-driven solutions tailored to each sector, enhancing the firm’s service offerings.
-
-Outcome: Fellow consultant will develop a comprehensive understanding of AI's potential and capabilities. This knowledge will enable consultants to effectively identify and propose AI-driven solutions.""", 
+Outcome: Fellow consultant will develop a comprehensive understanding of AI's potential and capabilities.""", 
                                         label = 'Topic to build:',
                                         lines=5,
                                         scale = 3)
