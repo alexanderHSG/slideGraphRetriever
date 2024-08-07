@@ -11,8 +11,8 @@ import re
 import mysql.connector
 
 
-from dotenv import load_dotenv
-load_dotenv()
+#from dotenv import load_dotenv
+#load_dotenv()
 
 
 
@@ -445,7 +445,8 @@ async () => {
                             shape: "image" // Sets the shape to use an image (use "circularImage" for circular nodes)
                         },
                         function: {
-                            image: (node) => "https://slidestorage.s3.eu-north-1.amazonaws.com/" + node.properties.object_id + ".png"
+                            image: (node) => "https://slidestorage.s3.eu-north-1.amazonaws.com/" + node.properties.object_id + ".png",
+                            title: (node) => `Slide Title: ${node.properties.title}, ID: ${node.properties.id}`
                         }
                         }
                     },
@@ -467,18 +468,19 @@ async () => {
                             color: 'black',
                             size: 14, // Pixel size
                             face: 'Quicksand' // Uniform font across all graph elements
-                        }
-                        title: (node) => `Description: ${{node.properties.description}}`,
+                        },
+
+                    },
+                    function: {
+                        title: (node) => `ID of the Storypoint: ${node.properties.id}`
                     }
                 }
             },
             SLIDE_DECK: {
-                label: "title",
-    
-
+                label: "Slide Deck",
                 [NeoVis.NEOVIS_ADVANCED_CONFIG]: {
                     static: {
-                        caption: "title",
+
                         shape: 'circle', // Updated to circle for a uniform and standard appearance
                         color: {
                             background: 'lightyellow',
@@ -493,6 +495,11 @@ async () => {
                             size: 14, // Pixel size
                             face: 'Quicksand' // Uniform font across all graph elements
                         }
+
+                    },
+                    function: {
+                        title: (node) => `This is a slide deck
+                        ID: ${node.properties.deck_id}`
                     }
                 }
             }
