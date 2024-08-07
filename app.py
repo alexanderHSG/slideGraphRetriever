@@ -6,7 +6,7 @@ from neo4j import GraphDatabase
 import pandas as pd
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
-from dotenv import load_dotenv
+#from dotenv import load_dotenv
 from datetime import datetime
 import re
 import mysql.connector
