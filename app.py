@@ -3,6 +3,7 @@ import openai
 import json
 import gradio as gr
 from neo4j import GraphDatabase
+from neo4j.graph import Node, Relationship
 import pandas as pd
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
@@ -119,6 +120,10 @@ def custom_filtering(filter_prompt, current_cypher_query, neo4j_response):
 
                     Instructions:
                     The current cypher query is: "{current_cypher_query}"
+
+
+
+
                     The Neo4j response is: "{neo4j_response}"
 
                     Ensure the correct STORYPOINT nodes in the order is adressed, as specified in the initial line of the current cypher query.
@@ -128,7 +133,7 @@ def custom_filtering(filter_prompt, current_cypher_query, neo4j_response):
                     Do not include any nicities, greetings or repeat the task. Keep the query concise and only answer in this format.
                     """
 
-     print("system_prompt\n", system_prompt)
+
      response = openai.chat.completions.create(
             model = "gpt-4o", 
             response_format = {"type": "json_object"},
@@ -214,7 +219,11 @@ def fetch_embeddings(driver):
     """
     embeddings = {}
     with driver.session() as session:
-        result = session.run(query)
+        try:
+            result = session.run(query)
+        except Exception as e:
+            raise gr.Error("Connection to the GraphDatabase failed, please try again in a few seconds! This is probably temporary.", duration=5)
+
         for record in result:
             embeddings[record['id']] = np.array(record['embedding'])
     return embeddings
@@ -321,35 +330,21 @@ def profile_user(username, password):
 
 
 def get_neo4j_response(query):
+
+    #filter out the textual content and embeddings from the response as they waste space and are not needed for visualization
     with driver.session() as session:
         result = session.run(query)
         response = []
         for record in result:
-            clean_record = {}
-            for key, element in record.items():
-                if hasattr(element, 'properties'):  # Check if element has 'properties' attribute
-                    # Filter out unwanted properties and handle both Node and Relationship objects
-                    filtered_properties = {k: v for k, v in element.properties.items() if k not in ['textual_content', 'embedding']}
-                    clean_record[key] = filtered_properties
-                elif hasattr(element, '__iter__') and not isinstance(element, str):  # Check for iterable elements except strings
-                    # Handle lists or other iterable, non-string elements
-                    iterable_clean = []
-                    for item in element:
-                        if hasattr(item, 'properties'):
-                            item_properties = {k: v for k, v in item.properties.items() if k not in ['textual_content', 'embedding']}
-                            iterable_clean.append(item_properties)
-                        else:
-                            iterable_clean.append(item)
-                    clean_record[key] = iterable_clean
-                else:
-                    # For other data types that are neither nodes nor relationships
-                    clean_record[key] = element
-            response.append(clean_record)
-        
-    
-    #save to txt file
-    with open("neo4j_response.txt", "w") as f:
-        f.write(str(response))
+            filtered_record = {}
+            for key, value in record.items():
+                if isinstance(value, (Node, Relationship)):
+                    # Directly filter properties without attempting to recreate the object
+                    filtered_properties = {k: v for k, v in value._properties.items() if k not in ["textual_content", "embedding"]}
+                    value._properties = filtered_properties
+                filtered_record[key] = value
+            response.append(filtered_record)
+
 
     return response
 
