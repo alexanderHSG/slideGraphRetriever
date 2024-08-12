@@ -1,3 +1,4 @@
 
 *.env
 requirementsforenv.txt
+all_talks.db

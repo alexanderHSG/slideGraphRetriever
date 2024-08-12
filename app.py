@@ -222,7 +222,7 @@ def fetch_embeddings(driver):
         try:
             result = session.run(query)
         except Exception as e:
-            raise gr.Error("Connection to the GraphDatabase failed, please try again in a few seconds! This is probably temporary.", duration=5)
+            raise gr.Error("Connection to the GraphDatabase failed, please try again in a few seconds! This is probably temporary.", duration=7)
 
         for record in result:
             embeddings[record['id']] = np.array(record['embedding'])
