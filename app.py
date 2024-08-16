@@ -319,6 +319,7 @@ VALUES (%s, %s, %s, %s)
 
 def profile_user(username, password):
     global user_id
+    print(gr.Request.query_params)
     user_id = username
     track_user_interaction("", "login")
     if password == os.getenv("APP_PASSWORD"):
