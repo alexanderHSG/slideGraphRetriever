@@ -321,12 +321,13 @@ def profile_user(request: gr.Request):
     
     global user_id
     print(dict(request.query_params))
+    username = dict(request.query_params)["username"]
     user_id = username
     track_user_interaction("", "login")
-    if password == os.getenv("APP_PASSWORD"):
-        return True
+    if dict(request.query_params)["password"] == os.getenv("APP_PASSWORD"):
+        return user_id
     else:
-        return False
+        return None
 
 
 
