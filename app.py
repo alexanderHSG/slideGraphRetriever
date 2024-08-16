@@ -270,7 +270,7 @@ def track_user_interaction(user_input, action, user_id):
 
     
     user_id = str(user_id)
-    
+    print(user_id)
 
     # Construct connection string
     from mysql.connector import errorcode
