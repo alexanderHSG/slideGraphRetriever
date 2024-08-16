@@ -320,14 +320,19 @@ VALUES (%s, %s, %s, %s)
 def profile_user(request: gr.Request):
     
     global user_id
-    print(dict(request.query_params))
-    username = dict(request.query_params)["username"]
-    user_id = username
-    track_user_interaction("", "login")
-    if dict(request.query_params)["password"] == os.getenv("APP_PASSWORD"):
-        return user_id
-    else:
+    query_params = dict(request.query_params)
+    try:
+        username = dict(request.query_params)["username"]
+        user_id = username
+        track_user_interaction("", "login")
+        if dict(request.query_params)["password"] == os.getenv("APP_PASSWORD"):
+            return user_id
+        else:
+            return None 
+    except:
         return None
+        
+    
 
 
 
