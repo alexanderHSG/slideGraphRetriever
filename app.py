@@ -267,10 +267,10 @@ def coordinate_simcalculation(storyline_output_storypoint_name_list):
 
     return HTMLoutput, highest_similarities, query
 
-def track_user_interaction(user_input, action):
+def track_user_interaction(user_input, action, request: gr.Request):
     global user_id
     
-    
+    print("Query parameters:", dict(request.query_params))
     user_id = str(user_id)
     
 
