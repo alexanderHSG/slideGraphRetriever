@@ -814,8 +814,7 @@ Outcome: Fellow consultant will develop a comprehensive understanding of AI's po
         
     
 
-    
+    demo.load(fn=profile_user, outputs = user_id)
 
 gr.close_all()
 demo.launch(show_api=False, auth_message = "Hello there! Please log in to access the NarrativeNet Weaver using your Prolific ID as username. Use the password supplied in Qualtrics.")
-demo.load(fn=profile_user, outputs = user_id)
