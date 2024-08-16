@@ -27,7 +27,6 @@ driver = GraphDatabase.driver(neo4j_url, auth=AUTH)
 
 
 
-user_id = None
 
 
 
@@ -267,9 +266,8 @@ def coordinate_simcalculation(storyline_output_storypoint_name_list):
 
     return HTMLoutput, highest_similarities, query
 
-def track_user_interaction(user_input, action):
-    global user_id
-    
+def track_user_interaction(user_input, action, user_id):
+
     
     user_id = str(user_id)
     
@@ -319,16 +317,16 @@ VALUES (%s, %s, %s, %s)
 
 def profile_user(request: gr.Request):
     
-    global user_id
+
     query_params = dict(request.query_params)
     try:
         username = dict(request.query_params)["username"]
         user_id = username
-        track_user_interaction("", "login")
-        if dict(request.query_params)["password"] == os.getenv("APP_PASSWORD"):
-            return user_id
-        else:
-            return None 
+        track_user_interaction("", "login", user_id)
+        #if dict(request.query_params)["password"] == os.getenv("APP_PASSWORD"):
+        #    return user_id
+        #else:
+        return user_id 
     except:
         return None
         
@@ -762,26 +760,26 @@ Outcome: Fellow consultant will develop a comprehensive understanding of AI's po
             #storyline_output_pretty = gr.Textbox(label="Your Storyline:", lines=13, scale=3, interactive=False)
             submit_button = gr.Button("⚡ Find Slides ⚡", elem_id="visGraph")
             submit_button.click(fn= coordinate_simcalculation, inputs=[storyline_output_storypoint_name_list], outputs=[graphVisual, highest_similarities_gradio_list, queryPlaceholder]
-                                ).then(track_user_interaction, inputs=[storyline_output_storypoint_name_list, gr.Textbox("findslidesStorypoints", visible=False)]
+                                ).then(track_user_interaction, inputs=[storyline_output_storypoint_name_list, gr.Textbox("findslidesStorypoints", visible=False), user_id]
                                 ).then(get_neo4j_response, inputs=[queryPlaceholder], outputs=[responsePlaceholder]
-                                ).then(track_user_interaction, inputs=[queryPlaceholder, gr.Textbox("findslidesQuery", visible=False)]
-                                ).then(track_user_interaction, inputs=[responsePlaceholder, gr.Textbox("findslidesNeo4jResponse", visible=False)]).then(js = js_call_draw)
+                                ).then(track_user_interaction, inputs=[queryPlaceholder, gr.Textbox("findslidesQuery", visible=False), user_id]
+                                ).then(track_user_interaction, inputs=[responsePlaceholder, gr.Textbox("findslidesNeo4jResponse", visible=False), user_id]).then(js = js_call_draw)
 
 
 
             btn_buildstoryline.click(slide_deck_storyline, 
                                     inputs = [storyline_prompt, nr_storypoints_to_build], 
                                     outputs = [storyline_output_JSON, storyline_output_storypoint_name_list]
-                                    ).then(track_user_interaction, inputs=[storyline_prompt, gr.Textbox("buildstorylinePrompt", visible=False)]
-                                    ).then(track_user_interaction, inputs=[storyline_output_storypoint_name_list, gr.Textbox("buildstorylineGPTOutput", visible=False)]
-                                    ).then(track_user_interaction, inputs=[nr_storypoints_to_build, gr.Textbox("buildstorylineNumberOfPoints", visible=False)])
+                                    ).then(track_user_interaction, inputs=[storyline_prompt, gr.Textbox("buildstorylinePrompt", visible=False), user_id]
+                                    ).then(track_user_interaction, inputs=[storyline_output_storypoint_name_list, gr.Textbox("buildstorylineGPTOutput", visible=False), user_id]
+                                    ).then(track_user_interaction, inputs=[nr_storypoints_to_build, gr.Textbox("buildstorylineNumberOfPoints", visible=False), user_id])
                 
             storyline_prompt.submit(slide_deck_storyline, 
                                     inputs = [storyline_prompt, nr_storypoints_to_build], 
                                     outputs = [storyline_output_JSON, storyline_output_storypoint_name_list]
-                                    ).then(track_user_interaction, inputs=[storyline_prompt, gr.Textbox("buildstorylinePrompt", visible=False)]
-                                    ).then(track_user_interaction, inputs=[storyline_output_storypoint_name_list, gr.Textbox("buildstorylineGPTOutput", visible=False)]
-                                    ).then(track_user_interaction, inputs=[nr_storypoints_to_build, gr.Textbox("buildstorylineNumberOfPoints", visible=False)])
+                                    ).then(track_user_interaction, inputs=[storyline_prompt, gr.Textbox("buildstorylinePrompt", visible=False), user_id]
+                                    ).then(track_user_interaction, inputs=[storyline_output_storypoint_name_list, gr.Textbox("buildstorylineGPTOutput", visible=False), user_id]
+                                    ).then(track_user_interaction, inputs=[nr_storypoints_to_build, gr.Textbox("buildstorylineNumberOfPoints", visible=False), user_id])
 
     gr.Markdown("""## 3. Visualize and Filter: 🔍
 
@@ -799,15 +797,15 @@ Outcome: Fellow consultant will develop a comprehensive understanding of AI's po
         with gr.Column(scale=2):
             nodeSelector.render()
             filterBTN.render()
-            filterBTN.click(fn= construct_hmtl, inputs=[highest_similarities_gradio_list, nodeSelector], outputs=[graphVisual]).then(track_user_interaction, inputs=[nodeSelector, gr.Textbox("filterDropdown", visible=False)]
+            filterBTN.click(fn= construct_hmtl, inputs=[highest_similarities_gradio_list, nodeSelector], outputs=[graphVisual]).then(track_user_interaction, inputs=[nodeSelector, gr.Textbox("filterDropdown", visible=False), user_id]
                                 ).then(js = js_call_draw)
             
         with gr.Column(scale=2):
             custom_filtering_output = gr.Textbox(lines=2, scale=3, interactive=True, label = "Describe what you would like to filter for?", placeholder = """For example: 'Filter to only show slides and their respective slide decks that are assigned to the third STORYPOINT'""")
             customfilter_btn = gr.Button("Apply custom filter")
             customfilter_btn.click(custom_filtering, inputs=[custom_filtering_output, queryPlaceholder, responsePlaceholder], outputs=[graphVisual, customFilterQuery]
-                                ).then(track_user_interaction, inputs=[custom_filtering_output, gr.Textbox("customFilterPrompt", visible=False)]
-                                ).then(track_user_interaction, inputs=[customFilterQuery, gr.Textbox("customFilterQuery", visible=False)]).then(js = js_call_draw)
+                                ).then(track_user_interaction, inputs=[custom_filtering_output, gr.Textbox("customFilterPrompt", visible=False), user_id]
+                                ).then(track_user_interaction, inputs=[customFilterQuery, gr.Textbox("customFilterQuery", visible=False), user_id]).then(js = js_call_draw)
             
     with gr.Group():
         with gr.Row():
@@ -819,4 +817,4 @@ Outcome: Fellow consultant will develop a comprehensive understanding of AI's po
     
 
 gr.close_all()
-demo.launch(show_api=False, auth_message = "Hello there! Please log in to access the NarrativeNet Weaver using your Prolific ID as username. Use the password supplied in Qualtrics.", auth_dependency=profile_user)
+demo.launch(show_api=False, auth_message = "Hello there! Please log in to access the NarrativeNet Weaver using your Prolific ID as username. Use the password supplied in Qualtrics.", fn=profile_user, outputs = user_id)
