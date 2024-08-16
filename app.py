@@ -267,10 +267,10 @@ def coordinate_simcalculation(storyline_output_storypoint_name_list):
 
     return HTMLoutput, highest_similarities, query
 
-def track_user_interaction(user_input, action, request: gr.Request):
+def track_user_interaction(user_input, action):
     global user_id
     
-    print("Query parameters:", dict(request.query_params))
+    
     user_id = str(user_id)
     
 
@@ -317,8 +317,10 @@ VALUES (%s, %s, %s, %s)
 
 
 
-def profile_user(username, password):
+def profile_user(request: gr.Request):
+    
     global user_id
+    print(dict(request.query_params))
     user_id = username
     track_user_interaction("", "login")
     if password == os.getenv("APP_PASSWORD"):
@@ -811,4 +813,4 @@ Outcome: Fellow consultant will develop a comprehensive understanding of AI's po
     
 
 gr.close_all()
-demo.launch(show_api=False, auth_message = "Hello there! Please log in to access the NarrativeNet Weaver using your Prolific ID as username. Use the password supplied in Qualtrics.", auth=profile_user)
+demo.launch(show_api=False, auth_message = "Hello there! Please log in to access the NarrativeNet Weaver using your Prolific ID as username. Use the password supplied in Qualtrics.", auth_dependency=profile_user)
