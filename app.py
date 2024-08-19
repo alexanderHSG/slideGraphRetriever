@@ -22,7 +22,7 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 
 neo4j_url = "neo4j+s://" + str(os.getenv("NEO4J_URL"))
 AUTH = (os.getenv("NEO4J_USERNAME"), os.getenv("NEO4J_PASSWORD"))
-driver = GraphDatabase.driver(neo4j_url, auth=AUTH)
+
 
 
 
@@ -211,12 +211,13 @@ def get_embedding_inputstorypoints(storyline_output_storypoint_name_list, model=
 
 
 # Function to fetch embeddings from Neo4j
-def fetch_embeddings(driver):
+def fetch_embeddings():
     query = """
     MATCH (sp:STORYPOINT)
     RETURN sp.id AS id, sp.embedding AS embedding
     """
     embeddings = {}
+    driver = GraphDatabase.driver(neo4j_url, auth=AUTH)
     with driver.session() as session:
         try:
             result = session.run(query)
@@ -225,6 +226,7 @@ def fetch_embeddings(driver):
 
         for record in result:
             embeddings[record['id']] = np.array(record['embedding'])
+    driver.close()
     return embeddings
 
 # Function to calculate cosine similarity and find the highest similarities
@@ -250,7 +252,7 @@ def find_highest_similarities(existing_embeddings, new_embeddings):
 def coordinate_simcalculation(storyline_output_storypoint_name_list):
 
     # Fetch existing embeddings from Neo4j
-    existing_embeddings = fetch_embeddings(driver)
+    existing_embeddings = fetch_embeddings()
     input_storypoints = get_embedding_inputstorypoints(storyline_output_storypoint_name_list)
     # Assume new_embeddings come from your Python processing earlier
     new_embeddings = {row['description']: row['ada_embedding'] for index, row in input_storypoints.iterrows()}
@@ -336,7 +338,8 @@ def profile_user(request: gr.Request):
 
 
 def get_neo4j_response(query):
-
+    
+    driver = GraphDatabase.driver(neo4j_url, auth=AUTH)
     #filter out the textual content and embeddings from the response as they waste space and are not needed for visualization
     with driver.session() as session:
         result = session.run(query)
@@ -351,7 +354,7 @@ def get_neo4j_response(query):
                 filtered_record[key] = value
             response.append(filtered_record)
 
-
+    driver.close()
     return response
 
 def construct_hmtl(highest_similarities = None, nodes_to_show=["SLIDE_DECK", "SLIDE", "STORYPOINT"], query=None):
