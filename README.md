@@ -1,7 +1,7 @@
 # NarrativeNet Weaver Web Application
 
 ## Overview
-The **NarrativeNet Weaver** is an AI-driven web application designed to help users create engaging, structured presentations by leveraging AI-generated storylines, retrieving relevant slide content from a Neo4j database, and visually exploring content connections.
+The **NarrativeNet Weaver** is an AI-driven web application designed to help users create engaging, structured presentations by leveraging AI-generated storylines, retrieving relevant slide content from a Neo4j database, and visually exploring content connections in a knowledge graph.
 
 ## Key Features
 
